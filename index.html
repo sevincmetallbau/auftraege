@@ -11,8 +11,8 @@
     font-family: 'Segoe UI', Arial, sans-serif;
     background: #111827;
     color: #e5e7eb;
-    min-height: 100vh;
-    overflow-x: hidden;
+    height: 100vh;
+    overflow: hidden;
   }
 
   /* ── HEADER ── */
@@ -110,8 +110,13 @@
   /* ── TABELLE ── */
   main {
     padding: 24px 36px;
-    height: calc(100vh - 140px);
+    flex: 1;
     overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
   }
 
   .table-wrap {
