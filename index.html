@@ -420,7 +420,7 @@ function renderAuftraege(daten) {
         <div class="card-info">
           <div class="info-item">
             <span class="info-label">Mitarbeiter</span>
-            <span class="info-value">${a.mitarbeiter || '–'}</span>
+            <span class="info-value">${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Gestartet</span>

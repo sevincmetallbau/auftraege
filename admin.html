@@ -286,6 +286,32 @@
 
   .modal-overlay.hidden { display: none; }
 
+  .check-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .check-item {
+    background: #0f1e3d;
+    border: 2px solid #0f3460;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #ddd;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .check-item:hover { border-color: #1a4a80; }
+  .check-item.selected { border-color: #e94560; background: rgba(233,69,96,0.12); color: #fff; }
+  .check-item input[type="checkbox"] { display: none; }
+
   .modal {
     background: #16213e;
     border: 1px solid #0f3460;
@@ -564,11 +590,11 @@
         <label>Beschreibung</label>
         <input type="text" id="f-beschreibung" placeholder="Was wird gebaut / gemacht?">
       </div>
-      <div class="form-group">
-        <label>Mitarbeiter</label>
-        <select id="f-mitarbeiter">
-          <option value="">– Alle / Keine Angabe –</option>
-        </select>
+      <div class="form-group full">
+        <label>Mitarbeiter (mehrere möglich)</label>
+        <div class="check-group" id="mitarbeiter-checks">
+          <span style="color:#555;font-size:0.85rem">Lädt…</span>
+        </div>
       </div>
       <div class="form-group">
         <label>Startzeit</label>
@@ -700,19 +726,40 @@ async function ladeAuftraege() {
   }
 }
 
+let mitarbeiterListe = [];
+
 async function ladeMitarbeiter() {
   try {
-    const liste = await sbFetch('mitarbeiter?order=name.asc');
-    const sel = document.getElementById('f-mitarbeiter');
-    liste.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.name;
-      opt.textContent = m.name;
-      sel.appendChild(opt);
-    });
+    mitarbeiterListe = await sbFetch('mitarbeiter?order=name.asc');
+    renderMitarbeiterChecks([]);
   } catch(e) {
-    // Mitarbeiter konnten nicht geladen werden – kein Fehler
+    mitarbeiterListe = [];
   }
+}
+
+function renderMitarbeiterChecks(ausgewaehlt) {
+  const wrap = document.getElementById('mitarbeiter-checks');
+  if (mitarbeiterListe.length === 0) {
+    wrap.innerHTML = '<span style="color:#555;font-size:0.85rem">Keine Mitarbeiter gefunden</span>';
+    return;
+  }
+  wrap.innerHTML = mitarbeiterListe.map(m => {
+    const aktiv = (ausgewaehlt || []).includes(m.name);
+    return `<label class="check-item${aktiv ? ' selected' : ''}" onclick="toggleCheck(this)">
+      <input type="checkbox" value="${m.name}"${aktiv ? ' checked' : ''}>
+      ${m.name}
+    </label>`;
+  }).join('');
+}
+
+function toggleCheck(el) {
+  const cb = el.querySelector('input');
+  cb.checked = !cb.checked;
+  el.classList.toggle('selected', cb.checked);
+}
+
+function getMitarbeiterAuswahl() {
+  return Array.from(document.querySelectorAll('#mitarbeiter-checks input:checked')).map(cb => cb.value);
 }
 
 // ─── RENDER ────────────────────────────────────────────
@@ -796,7 +843,7 @@ function render() {
         <td class="auftrag-nr-cell">${a.auftragsnummer || '–'}</td>
         <td>${a.kunde || '–'}</td>
         <td>${a.beschreibung || '–'}${a.status !== 'aktiv' ? ` <span style="font-size:0.75rem;color:#9b59b6">${statusLabels[a.status]||''}</span>` : ''}</td>
-        <td>${a.mitarbeiter || '–'}</td>
+        <td>${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</td>
         <td class="zeit-col">${formatDt(a.startzeit)}</td>
         <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] : formatDauer(a.geplante_stunden)}</td>
         <td class="zeit-col">${a.startzeit ? formatDauer(elapsed) : '–'}</td>
@@ -822,7 +869,7 @@ function render() {
       <td class="auftrag-nr-cell">${a.auftragsnummer || '–'}</td>
       <td>${a.kunde || '–'}</td>
       <td>${a.beschreibung || '–'}</td>
-      <td>${a.mitarbeiter || '–'}</td>
+      <td>${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</td>
       <td class="zeit-col">${formatDt(a.startzeit)}</td>
       <td class="zeit-col">${formatDauer(a.geplante_stunden)}</td>
       <td class="zeit-col">${formatDt(a.erledigt_at)}</td>
@@ -851,7 +898,7 @@ async function modalOeffnen() {
   document.getElementById('f-nr').value = await getNextNummer();
   document.getElementById('f-kunde').value = '';
   document.getElementById('f-beschreibung').value = '';
-  document.getElementById('f-mitarbeiter').value = '';
+  renderMitarbeiterChecks([]);
   const jetzt = new Date();
   jetzt.setMinutes(jetzt.getMinutes() - jetzt.getTimezoneOffset());
   document.getElementById('f-startzeit').value = jetzt.toISOString().slice(0,16);
@@ -871,7 +918,7 @@ function modalBearbeiten(id) {
   document.getElementById('f-nr').value = a.auftragsnummer || '';
   document.getElementById('f-kunde').value = a.kunde || '';
   document.getElementById('f-beschreibung').value = a.beschreibung || '';
-  document.getElementById('f-mitarbeiter').value = a.mitarbeiter || '';
+  renderMitarbeiterChecks(a.mitarbeiter || []);
   if (a.startzeit) {
     const d = new Date(a.startzeit);
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -927,7 +974,7 @@ async function speichern() {
     auftragsnummer: nr,
     kunde: document.getElementById('f-kunde').value.trim() || null,
     beschreibung: document.getElementById('f-beschreibung').value.trim() || null,
-    mitarbeiter: document.getElementById('f-mitarbeiter').value || null,
+    mitarbeiter: getMitarbeiterAuswahl(),
     startzeit,
     geplante_stunden,
     planung_typ: istTage ? 'tage' : 'stunden',
