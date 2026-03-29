@@ -291,6 +291,66 @@
     margin-top: 4px;
   }
 
+  /* ── Mobile ── */
+  @media (max-width: 767px) {
+    header { padding: 12px 16px; }
+    header .header-logo h1 { font-size: 1.2rem; }
+    #uhrzeit { font-size: 1.5rem; }
+    .legende-bar { display: none; }
+    main { padding: 12px; }
+    .table-wrap { border-radius: 10px; }
+
+    /* Tabelle → Cards auf Handy */
+    thead { display: none; }
+
+    tbody tr {
+      display: block;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #374151;
+      overflow: hidden;
+      position: relative;
+    }
+
+    tbody tr.row-klein { opacity: 0.7; }
+
+    td { display: block; padding: 0; }
+
+    .stripe-cell {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 8px !important;
+    }
+
+    .stripe { min-height: unset; height: 100% !important; }
+
+    /* Hauptinhalt-Zelle */
+    td:nth-child(2) .td-inner { padding: 14px 14px 10px 20px; }
+
+    /* Alle anderen Zellen ausblenden außer Hauptinhalt + Restzeit */
+    td:nth-child(3),
+    td:nth-child(4),
+    td:nth-child(5),
+    td:nth-child(6),
+    td:nth-child(8) { display: none; }
+
+    /* Restzeit kompakt unten */
+    td:nth-child(7) .td-inner {
+      padding: 0 14px 14px 20px;
+      text-align: left !important;
+    }
+
+    .kunde-name { font-size: 1.2rem; }
+    .auftrag-nr { font-size: 0.85rem; }
+    .zeit-wert { font-size: 1rem; }
+
+    .ma-badges { margin-top: 4px; }
+    .ma-badge { font-size: 0.78rem; padding: 2px 9px; }
+
+    /* Mitarbeiter in der Hauptzelle anzeigen */
+    td:nth-child(2) .td-inner::after { content: ''; }
+  }
+
   @keyframes blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.35; }

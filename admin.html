@@ -514,9 +514,20 @@
   <h1>Sevinc <span>Metallbau</span> – Admin</h1>
   <div class="header-actions">
     <button class="btn-neu" onclick="modalOeffnen()">+ Neuer Auftrag</button>
+    <button class="btn-back" onclick="qrToggle()">📱 QR-Code</button>
     <a href="index.html" class="btn-back">Mitarbeiter-Ansicht</a>
   </div>
 </header>
+
+<!-- QR BOX -->
+<div id="qr-box" style="display:none;background:#16213e;border-bottom:2px solid #0f3460;padding:20px 28px;display:none;align-items:center;gap:24px;flex-wrap:wrap">
+  <img id="qr-img" src="" alt="QR Code" style="width:140px;height:140px;border-radius:10px;background:#fff;padding:6px">
+  <div>
+    <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:6px">Mitarbeiter scannen diesen Code</div>
+    <div style="font-size:0.85rem;color:#888;margin-bottom:10px">Auftrag fertigmelden – PIN-geschützt</div>
+    <a id="qr-link" href="#" target="_blank" style="font-size:0.8rem;color:#7dc3ff;word-break:break-all"></a>
+  </div>
+</div>
 
 <!-- TABS -->
 <div class="tabs">
@@ -561,9 +572,9 @@
           <th>Kunde</th>
           <th>Beschreibung</th>
           <th>Mitarbeiter</th>
-          <th>Gestartet</th>
-          <th>Geplant</th>
           <th>Erledigt am</th>
+          <th>Erledigt von</th>
+          <th>Zeit</th>
           <th>Aktionen</th>
         </tr></thead>
         <tbody id="tbody-erledigt"><tr><td colspan="8" class="leer">Lade…</td></tr></tbody>
@@ -875,21 +886,34 @@ function render() {
   if (erledigt.length === 0) {
     te.innerHTML = '<tr><td colspan="8" class="leer">Keine erledigten Aufträge</td></tr>';
   } else {
-    te.innerHTML = erledigt.map(a => `<tr>
+    te.innerHTML = erledigt.map(a => {
+      // Früher / später berechnen
+      let zeitDiffHtml = '–';
+      if (a.erledigt_at && a.startzeit) {
+        const actual = Math.max(0, (new Date(a.erledigt_at) - new Date(a.startzeit)) / 3600000 - (a.pause_gesamt || 0));
+        const diff = a.geplante_stunden - actual;
+        if (diff > 0.05)
+          zeitDiffHtml = `<span style="color:#4ade80;font-weight:700">🎉 ${formatDauer(diff)} früher</span>`;
+        else if (diff < -0.05)
+          zeitDiffHtml = `<span style="color:#f87171;font-weight:700">⚠️ ${formatDauer(Math.abs(diff))} überzogen</span>`;
+        else
+          zeitDiffHtml = `<span style="color:#9ca3af">Pünktlich ✓</span>`;
+      }
+      return `<tr>
       <td class="auftrag-nr-cell">${a.auftragsnummer || '–'}</td>
       <td>${a.kunde || '–'}</td>
       <td>${a.beschreibung || '–'}</td>
       <td>${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</td>
-      <td class="zeit-col">${formatDt(a.startzeit)}</td>
-      <td class="zeit-col">${formatDauer(a.geplante_stunden)}</td>
       <td class="zeit-col">${formatDt(a.erledigt_at)}</td>
+      <td class="zeit-col">${a.erledigt_von ? `<strong>${a.erledigt_von}</strong>` : '–'}</td>
+      <td class="zeit-col">${zeitDiffHtml}</td>
       <td>
         <div class="actions-cell">
           <button class="btn-action btn-restore" onclick="wiederaktivieren('${a.id}')">↩️ Reaktivieren</button>
           <button class="btn-action btn-delete" onclick="loeschenBestaetigen('${a.id}', '${(a.auftragsnummer||'').replace(/'/g,"\\'")}')">🗑️</button>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;}).join('');
   }
 }
 
@@ -1098,6 +1122,21 @@ async function confirmJa() {
 function confirmNein() {
   loeschId = null;
   document.getElementById('confirm-box').classList.add('hidden');
+}
+
+// ─── QR CODE ───────────────────────────────────────────
+function qrToggle() {
+  const box = document.getElementById('qr-box');
+  const sichtbar = box.style.display === 'flex';
+  if (sichtbar) {
+    box.style.display = 'none';
+  } else {
+    const url = window.location.origin + window.location.pathname.replace('admin.html', 'fertig.html');
+    document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(url)}`;
+    document.getElementById('qr-link').href = url;
+    document.getElementById('qr-link').textContent = url;
+    box.style.display = 'flex';
+  }
 }
 
 // ─── TOAST ─────────────────────────────────────────────

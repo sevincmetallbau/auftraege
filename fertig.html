@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Fertigmeldung – Sevinc Metallbau</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #111827;
+    color: #e5e7eb;
+    min-height: 100vh;
+  }
+
+  header {
+    background: #1f2937;
+    border-bottom: 4px solid #e94560;
+    padding: 20px 24px;
+    text-align: center;
+  }
+
+  header h1 { font-size: 1.4rem; font-weight: 800; color: #fff; }
+  header h1 span { color: #e94560; }
+  header p { font-size: 0.9rem; color: #9ca3af; margin-top: 4px; }
+
+  .screen { display: none; padding: 24px; max-width: 600px; margin: 0 auto; }
+  .screen.aktiv { display: block; }
+
+  /* ── Screen 1: Mitarbeiter wählen ── */
+  .screen-titel {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #9ca3af;
+    text-align: center;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .ma-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .ma-btn {
+    background: #1f2937;
+    border: 2px solid #374151;
+    border-radius: 14px;
+    padding: 22px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #fff;
+  }
+
+  .ma-btn:active { transform: scale(0.97); }
+  .ma-btn:hover { border-color: #e94560; background: #2a1f2e; }
+
+  .ma-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #374151;
+    color: #e94560;
+    font-size: 1.4rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+  }
+
+  .ma-name { font-size: 1rem; font-weight: 700; }
+
+  /* ── PIN Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+
+  .modal-overlay.hidden { display: none; }
+
+  .modal {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 20px;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+
+  .modal h2 { font-size: 1.2rem; color: #fff; margin-bottom: 6px; }
+  .modal p { font-size: 0.9rem; color: #9ca3af; margin-bottom: 24px; }
+
+  .pin-display {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+
+  .pin-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid #4b5563;
+    background: transparent;
+    transition: all 0.15s;
+  }
+
+  .pin-dot.filled { background: #e94560; border-color: #e94560; }
+
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .num-btn {
+    background: #374151;
+    border: none;
+    border-radius: 12px;
+    padding: 18px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .num-btn:active { background: #4b5563; }
+
+  .num-btn.del { background: #1f2937; color: #9ca3af; font-size: 1.1rem; }
+  .num-btn.del:active { background: #374151; }
+  .num-btn.leer { visibility: hidden; }
+
+  .pin-fehler {
+    color: #f87171;
+    font-size: 0.88rem;
+    margin-top: 8px;
+    min-height: 20px;
+  }
+
+  .btn-abbrechen {
+    background: transparent;
+    border: 1px solid #374151;
+    border-radius: 10px;
+    padding: 12px 24px;
+    color: #9ca3af;
+    font-size: 0.9rem;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  /* ── Screen 3: Aufträge ── */
+  .auftraege-liste { display: flex; flex-direction: column; gap: 14px; }
+
+  .auftrag-card {
+    background: #1f2937;
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    border: 1px solid #374151;
+  }
+
+  .card-stripe {
+    width: 8px;
+    flex-shrink: 0;
+  }
+
+  .card-stripe.gruen    { background: #16a34a; }
+  .card-stripe.orange   { background: #ea580c; }
+  .card-stripe.rot      { background: #dc2626; }
+  .card-stripe.pausiert { background: #7c3aed; }
+
+  .card-inhalt {
+    padding: 16px;
+    flex: 1;
+  }
+
+  .card-nr { font-size: 0.8rem; color: #6b7280; font-weight: 600; }
+  .card-kunde { font-size: 1.2rem; font-weight: 800; color: #fff; margin: 2px 0 4px; }
+  .card-desc { font-size: 0.88rem; color: #9ca3af; margin-bottom: 10px; }
+
+  .card-zeiten {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+
+  .card-zeit-item { text-align: center; }
+  .card-zeit-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card-zeit-wert { font-size: 1rem; font-weight: 700; color: #e5e7eb; }
+  .card-zeit-wert.rot { color: #f87171; }
+
+  .card-ma {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .card-ma-badge {
+    background: #374151;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+    color: #d1d5db;
+  }
+
+  .btn-fertig {
+    width: 100%;
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-fertig:active { background: #15803d; }
+
+  .kein-auftrag {
+    text-align: center;
+    padding: 50px 20px;
+    color: #4b5563;
+  }
+
+  .kein-auftrag-icon { font-size: 3rem; margin-bottom: 12px; }
+
+  /* ── Screen 4: Erfolg ── */
+  .erfolg-box {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .erfolg-icon { font-size: 4rem; margin-bottom: 16px; }
+  .erfolg-titel { font-size: 1.4rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .erfolg-text { font-size: 1rem; color: #9ca3af; margin-bottom: 8px; }
+  .erfolg-zeit-frueh { font-size: 1.3rem; font-weight: 800; color: #4ade80; margin: 12px 0; }
+  .erfolg-zeit-spaet { font-size: 1.3rem; font-weight: 800; color: #f87171; margin: 12px 0; }
+
+  .btn-zurueck {
+    background: #374151;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 32px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 24px;
+    width: 100%;
+  }
+
+  /* ── Confirm Overlay ── */
+  .confirm-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 200;
+    padding-bottom: 0;
+  }
+
+  .confirm-overlay.hidden { display: none; }
+
+  .confirm-sheet {
+    background: #1f2937;
+    border-radius: 20px 20px 0 0;
+    padding: 28px 24px 36px;
+    width: 100%;
+    max-width: 600px;
+  }
+
+  .confirm-sheet h3 { font-size: 1.1rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .confirm-sheet p { font-size: 0.9rem; color: #9ca3af; margin-bottom: 24px; }
+
+  .confirm-btns { display: flex; flex-direction: column; gap: 10px; }
+
+  .btn-confirm-ja {
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-confirm-nein {
+    background: #374151;
+    color: #9ca3af;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .zurueck-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #6b7280;
+    font-size: 0.88rem;
+    cursor: pointer;
+    margin-bottom: 20px;
+    width: fit-content;
+  }
+
+  .zurueck-link:hover { color: #9ca3af; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sevinc <span>Metallbau</span></h1>
+  <p>Auftrag fertigmelden</p>
+</header>
+
+<!-- Screen 1: Mitarbeiter wählen -->
+<div class="screen aktiv" id="screen-ma">
+  <div class="screen-titel">Wer bist du?</div>
+  <div class="ma-grid" id="ma-grid">
+    <div style="text-align:center;color:#4b5563;padding:40px;grid-column:1/-1">Lädt…</div>
+  </div>
+</div>
+
+<!-- Screen 2: PIN (im Modal) -->
+<div class="modal-overlay hidden" id="pin-modal">
+  <div class="modal">
+    <h2 id="pin-name">PIN eingeben</h2>
+    <p>Gib deinen 4-stelligen PIN ein</p>
+    <div class="pin-display">
+      <div class="pin-dot" id="dot-0"></div>
+      <div class="pin-dot" id="dot-1"></div>
+      <div class="pin-dot" id="dot-2"></div>
+      <div class="pin-dot" id="dot-3"></div>
+    </div>
+    <div class="numpad">
+      <button class="num-btn" onclick="pinTaste('1')">1</button>
+      <button class="num-btn" onclick="pinTaste('2')">2</button>
+      <button class="num-btn" onclick="pinTaste('3')">3</button>
+      <button class="num-btn" onclick="pinTaste('4')">4</button>
+      <button class="num-btn" onclick="pinTaste('5')">5</button>
+      <button class="num-btn" onclick="pinTaste('6')">6</button>
+      <button class="num-btn" onclick="pinTaste('7')">7</button>
+      <button class="num-btn" onclick="pinTaste('8')">8</button>
+      <button class="num-btn" onclick="pinTaste('9')">9</button>
+      <button class="num-btn leer"></button>
+      <button class="num-btn" onclick="pinTaste('0')">0</button>
+      <button class="num-btn del" onclick="pinLoeschen()">⌫</button>
+    </div>
+    <div class="pin-fehler" id="pin-fehler"></div>
+    <button class="btn-abbrechen" onclick="pinAbbrechen()">Abbrechen</button>
+  </div>
+</div>
+
+<!-- Screen 3: Aufträge -->
+<div class="screen" id="screen-auftraege">
+  <div class="zurueck-link" onclick="zurueckZuMitarbeitern()">← Zurück</div>
+  <div class="screen-titel" id="auftraege-titel">Aufträge</div>
+  <div class="auftraege-liste" id="auftraege-liste"></div>
+</div>
+
+<!-- Screen 4: Erfolg -->
+<div class="screen" id="screen-erfolg">
+  <div class="erfolg-box">
+    <div class="erfolg-icon">✅</div>
+    <div class="erfolg-titel" id="erfolg-titel">Auftrag erledigt!</div>
+    <div class="erfolg-text" id="erfolg-text"></div>
+    <div id="erfolg-zeit"></div>
+    <button class="btn-zurueck" onclick="neuStart()">Weiterer Auftrag</button>
+  </div>
+</div>
+
+<!-- Bestätigung Sheet -->
+<div class="confirm-overlay hidden" id="confirm-overlay">
+  <div class="confirm-sheet">
+    <h3 id="confirm-titel">Auftrag als erledigt markieren?</h3>
+    <p id="confirm-text"></p>
+    <div class="confirm-btns">
+      <button class="btn-confirm-ja" onclick="fertigBestaetigen()">✅ Ja, fertig!</button>
+      <button class="btn-confirm-nein" onclick="confirmAbbrechen()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://febvatualuantefwlqyq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlYnZhdHVhbHVhbnRlZndscXlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDcyMzUsImV4cCI6MjA5MDEyMzIzNX0.kK8cfkl3FXRxeDi1vZUNaRFf4-eIsi0TrFAvXDvUujc';
+
+let alleMitarbeiter = [];
+let aktiverMitarbeiter = null;
+let pinEingabe = '';
+let aktuelleAuftraege = [];
+let zuErledigenId = null;
+
+async function sbFetch(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+  });
+  return res.json();
+}
+
+async function sbPatch(path, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+// ── Init ──
+async function init() {
+  alleMitarbeiter = await sbFetch('mitarbeiter?order=name.asc');
+  const grid = document.getElementById('ma-grid');
+  if (!alleMitarbeiter.length) {
+    grid.innerHTML = '<div style="text-align:center;color:#4b5563;padding:40px;grid-column:1/-1">Keine Mitarbeiter gefunden</div>';
+    return;
+  }
+  grid.innerHTML = alleMitarbeiter.map(m => `
+    <div class="ma-btn" onclick="mitarbeiterWaehlen('${m.id}')">
+      <div class="ma-avatar">${m.name.charAt(0).toUpperCase()}</div>
+      <div class="ma-name">${m.name}</div>
+    </div>
+  `).join('');
+}
+
+// ── Mitarbeiter wählen ──
+function mitarbeiterWaehlen(id) {
+  aktiverMitarbeiter = alleMitarbeiter.find(m => m.id == id);
+  pinEingabe = '';
+  document.getElementById('pin-name').textContent = aktiverMitarbeiter.name;
+  document.getElementById('pin-fehler').textContent = '';
+  aktualisierePin();
+  document.getElementById('pin-modal').classList.remove('hidden');
+}
+
+// ── PIN ──
+function pinTaste(z) {
+  if (pinEingabe.length >= 4) return;
+  pinEingabe += z;
+  aktualisierePin();
+  if (pinEingabe.length === 4) {
+    setTimeout(pinPruefen, 200);
+  }
+}
+
+function pinLoeschen() {
+  pinEingabe = pinEingabe.slice(0, -1);
+  aktualisierePin();
+  document.getElementById('pin-fehler').textContent = '';
+}
+
+function aktualisierePin() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById(`dot-${i}`).classList.toggle('filled', i < pinEingabe.length);
+  }
+}
+
+function pinAbbrechen() {
+  document.getElementById('pin-modal').classList.add('hidden');
+  pinEingabe = '';
+  aktiverMitarbeiter = null;
+}
+
+async function pinPruefen() {
+  const pin = String(aktiverMitarbeiter.pin || '').padStart(4, '0');
+  if (pinEingabe !== pin) {
+    document.getElementById('pin-fehler').textContent = 'Falscher PIN – nochmal versuchen';
+    pinEingabe = '';
+    aktualisierePin();
+    return;
+  }
+  // PIN korrekt → Aufträge laden
+  document.getElementById('pin-modal').classList.add('hidden');
+  await ladeAuftraege();
+}
+
+// ── Aufträge ──
+async function ladeAuftraege() {
+  aktuelleAuftraege = await sbFetch('auftraege?status=in.(aktiv,pausiert)&order=created_at.asc');
+  const name = aktiverMitarbeiter.name;
+  document.getElementById('auftraege-titel').textContent = `Hallo ${name.split(' ')[0]}!`;
+
+  const liste = document.getElementById('auftraege-liste');
+
+  if (!aktuelleAuftraege.length) {
+    liste.innerHTML = '<div class="kein-auftrag"><div class="kein-auftrag-icon">🎉</div><div>Keine laufenden Aufträge</div></div>';
+  } else {
+    liste.innerHTML = aktuelleAuftraege.map(a => {
+      const elapsed = getElapsedHours(a);
+      const rest = a.geplante_stunden - elapsed;
+      const ueberzogen = rest < 0;
+      const st = getStatusClass(a);
+      return `
+        <div class="auftrag-card">
+          <div class="card-stripe ${st}"></div>
+          <div class="card-inhalt">
+            <div class="card-nr">${a.auftragsnummer || ''}</div>
+            <div class="card-kunde">${a.kunde || '–'}</div>
+            ${a.beschreibung ? `<div class="card-desc">${a.beschreibung}</div>` : ''}
+            <div class="card-zeiten">
+              <div class="card-zeit-item">
+                <div class="card-zeit-label">Laufzeit</div>
+                <div class="card-zeit-wert">${formatDauer(elapsed)}</div>
+              </div>
+              <div class="card-zeit-item">
+                <div class="card-zeit-label">${ueberzogen ? 'Überzogen' : 'Restzeit'}</div>
+                <div class="card-zeit-wert ${ueberzogen ? 'rot' : ''}">${ueberzogen ? '+' : ''}${formatDauer(Math.abs(rest))}</div>
+              </div>
+            </div>
+            ${(a.mitarbeiter && a.mitarbeiter.length) ? `<div class="card-ma">${a.mitarbeiter.map(m => `<span class="card-ma-badge">${m}</span>`).join('')}</div>` : ''}
+            <button class="btn-fertig" onclick="fertigAnfragen('${a.id}')">✅ Ich bin fertig</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  zeigScreen('screen-auftraege');
+}
+
+// ── Fertigmelden ──
+function fertigAnfragen(id) {
+  const a = aktuelleAuftraege.find(x => x.id === id);
+  zuErledigenId = id;
+  document.getElementById('confirm-titel').textContent = `"${a.kunde || a.auftragsnummer}" als erledigt markieren?`;
+  document.getElementById('confirm-text').textContent = `Du meldest diesen Auftrag als fertig. Dein Name wird eingetragen.`;
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+
+function confirmAbbrechen() {
+  document.getElementById('confirm-overlay').classList.add('hidden');
+  zuErledigenId = null;
+}
+
+async function fertigBestaetigen() {
+  document.getElementById('confirm-overlay').classList.add('hidden');
+  if (!zuErledigenId) return;
+
+  const a = aktuelleAuftraege.find(x => x.id === zuErledigenId);
+  const jetzt = new Date().toISOString();
+
+  // Tatsächliche Laufzeit berechnen
+  const elapsed = getElapsedHours(a);
+  const diff = a.geplante_stunden - elapsed; // positiv = früher, negativ = überzogen
+
+  await sbPatch(`auftraege?id=eq.${zuErledigenId}`, {
+    status: 'erledigt',
+    erledigt_at: jetzt,
+    erledigt_von: aktiverMitarbeiter.name
+  });
+
+  // Erfolgsscreen
+  document.getElementById('erfolg-titel').textContent = `Auftrag erledigt!`;
+  document.getElementById('erfolg-text').textContent = `Gemeldet von: ${aktiverMitarbeiter.name}`;
+
+  let zeitHtml = '';
+  if (diff > 0.05) {
+    zeitHtml = `<div class="erfolg-zeit-frueh">🎉 ${formatDauer(diff)} früher fertig!</div>`;
+  } else if (diff < -0.05) {
+    zeitHtml = `<div class="erfolg-zeit-spaet">⚠️ ${formatDauer(Math.abs(diff))} überzogen</div>`;
+  } else {
+    zeitHtml = `<div style="color:#9ca3af;font-size:1rem;margin:12px 0">Genau pünktlich ✓</div>`;
+  }
+  document.getElementById('erfolg-zeit').innerHTML = zeitHtml;
+
+  zeigScreen('screen-erfolg');
+  zuErledigenId = null;
+}
+
+// ── Navigation ──
+function zeigScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('aktiv'));
+  document.getElementById(id).classList.add('aktiv');
+}
+
+function zurueckZuMitarbeitern() {
+  zeigScreen('screen-ma');
+  aktiverMitarbeiter = null;
+}
+
+function neuStart() {
+  zeigScreen('screen-auftraege');
+  ladeAuftraege();
+}
+
+// ── Hilfsfunktionen ──
+function getElapsedHours(a) {
+  if (!a.startzeit) return 0;
+  const ref = (a.status === 'pausiert' && a.pausiert_seit) ? new Date(a.pausiert_seit) : new Date();
+  return Math.max(0, (ref - new Date(a.startzeit)) / 3600000 - (a.pause_gesamt || 0));
+}
+
+function getStatusClass(a) {
+  if (a.status === 'pausiert') return 'pausiert';
+  const pct = getElapsedHours(a) / a.geplante_stunden;
+  if (pct >= 1) return 'rot';
+  if (pct >= 0.75) return 'orange';
+  return 'gruen';
+}
+
+function formatDauer(h) {
+  if (h <= 0) h = 0;
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  if (hh === 0) return `${mm} Min`;
+  if (mm === 0) return `${hh} Std`;
+  return `${hh} Std ${mm} Min`;
+}
+
+init();
+</script>
+</body>
+</html>
