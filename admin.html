@@ -806,7 +806,7 @@ function formatDt(iso) {
 }
 
 function render() {
-  const aktiv    = alleAuftraege.filter(a => a.status === 'aktiv');
+  const aktiv    = alleAuftraege.filter(a => ['aktiv','geplant','pausiert'].includes(a.status));
   const erledigt = alleAuftraege.filter(a => a.status === 'erledigt');
 
   document.getElementById('badge-aktiv').textContent = aktiv.length;
