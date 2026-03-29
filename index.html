@@ -413,7 +413,7 @@ function renderAuftraege(daten) {
           </div>
           <div class="info-item">
             <span class="info-label">Geplant</span>
-            <span class="info-value">${formatDauer(a.geplante_stunden)}</span>
+            <span class="info-value">${a.planung_typ === 'tage' ? '📅 ' + formatDatetime(a.zieldatum).split(',')[0] : formatDauer(a.geplante_stunden)}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Laufzeit</span>
