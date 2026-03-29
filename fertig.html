@@ -680,11 +680,14 @@ function getStatusClass(a) {
 
 function formatDauer(h) {
   if (h <= 0) h = 0;
-  const hh = Math.floor(h);
-  const mm = Math.round((h - hh) * 60);
-  if (hh === 0) return `${mm} Min`;
-  if (mm === 0) return `${hh} Std`;
-  return `${hh} Std ${mm} Min`;
+  const tage = Math.floor(h / 24);
+  const stunden = Math.floor(h % 24);
+  const minuten = Math.round((h % 1) * 60);
+  const parts = [];
+  if (tage > 0) parts.push(`${tage} T`);
+  if (stunden > 0) parts.push(`${stunden} Std`);
+  if (minuten > 0 || parts.length === 0) parts.push(`${minuten} Min`);
+  return parts.join(' ');
 }
 
 init();
