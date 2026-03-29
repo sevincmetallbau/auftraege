@@ -874,7 +874,8 @@ function render() {
                     <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>`;
       } else if (a.status === 'pausiert') {
         aktionen = `<button class="btn-action btn-resume" onclick="fortsetzen('${a.id}')">▶ Weiter</button>
-                    <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>`;
+                    <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>
+                    <button class="btn-action" style="background:rgba(37,99,235,0.2);color:#93c5fd;border:1px solid #2563eb;font-size:0.7rem" onclick="zuruecksetzen('${a.id}')">↩ Nicht begonnen</button>`;
       }
 
       const statusLabels = { geplant:'Geplant', aktiv:'', pausiert:'Pausiert' };
@@ -1125,6 +1126,20 @@ async function fortsetzen(id) {
       pause_gesamt: (a.pause_gesamt || 0) + zusatz
     });
     toast('Auftrag fortgesetzt ▶');
+    await ladeAuftraege();
+  } catch(e) { toast('Fehler: ' + e.message, true); }
+}
+
+async function zuruecksetzen(id) {
+  try {
+    await sbFetch(`auftraege?id=eq.${id}`, 'PATCH', {
+      status: 'geplant',
+      startzeit: null,
+      pausiert_seit: null,
+      pause_gesamt: 0,
+      gestartet_von: null
+    });
+    toast('Auftrag zurückgesetzt auf "Nicht begonnen" ↩');
     await ladeAuftraege();
   } catch(e) { toast('Fehler: ' + e.message, true); }
 }

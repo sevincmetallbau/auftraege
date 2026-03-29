@@ -524,26 +524,44 @@ async function ladeAuftraege() {
       const st = getStatusClass(a);
       const istGeplant = a.status === 'geplant';
 
-      const zeitInfo = !istGeplant ? `
-        <div class="card-zeiten">
-          <div class="card-zeit-item">
-            <div class="card-zeit-label">Laufzeit</div>
-            <div class="card-zeit-wert">${formatDauer(elapsed)}</div>
+      let zeitInfo, aktionBtn, kleinStyle = '';
+
+      if (istGeplant) {
+        zeitInfo = `<div style="color:#93c5fd;font-size:0.88rem;margin-bottom:10px">🕐 Noch nicht gestartet</div>`;
+        aktionBtn = `<button class="btn-fertig" style="background:#2563eb" onclick="startenAnfragen('${a.id}')">▶ Auftrag starten</button>`;
+        kleinStyle = 'opacity:0.75';
+      } else if (a.status === 'pausiert') {
+        zeitInfo = `
+          <div class="card-zeiten">
+            <div class="card-zeit-item">
+              <div class="card-zeit-label">Laufzeit</div>
+              <div class="card-zeit-wert">${formatDauer(elapsed)}</div>
+            </div>
+            <div class="card-zeit-item">
+              <div class="card-zeit-label">${ueberzogen ? 'Überzogen' : 'Restzeit'}</div>
+              <div class="card-zeit-wert ${ueberzogen ? 'rot' : ''}">${ueberzogen ? '+' : ''}${formatDauer(Math.abs(rest))}</div>
+            </div>
           </div>
-          <div class="card-zeit-item">
-            <div class="card-zeit-label">${ueberzogen ? 'Überzogen' : 'Restzeit'}</div>
-            <div class="card-zeit-wert ${ueberzogen ? 'rot' : ''}">${ueberzogen ? '+' : ''}${formatDauer(Math.abs(rest))}</div>
-          </div>
-        </div>` : `<div style="color:#93c5fd;font-size:0.88rem;margin-bottom:10px">🕐 Noch nicht gestartet</div>`;
+          <div style="color:#c4b5fd;font-size:0.88rem;margin-bottom:10px">⏸ Pausiert</div>`;
+        aktionBtn = `<button class="btn-fertig" style="background:#7c3aed" onclick="fortsetzenAnfragen('${a.id}')">▶ Fortsetzen</button>`;
+        kleinStyle = 'opacity:0.75';
+      } else {
+        zeitInfo = `
+          <div class="card-zeiten">
+            <div class="card-zeit-item">
+              <div class="card-zeit-label">Laufzeit</div>
+              <div class="card-zeit-wert">${formatDauer(elapsed)}</div>
+            </div>
+            <div class="card-zeit-item">
+              <div class="card-zeit-label">${ueberzogen ? 'Überzogen' : 'Restzeit'}</div>
+              <div class="card-zeit-wert ${ueberzogen ? 'rot' : ''}">${ueberzogen ? '+' : ''}${formatDauer(Math.abs(rest))}</div>
+            </div>
+          </div>`;
+        aktionBtn = `<button class="btn-fertig" onclick="fertigAnfragen('${a.id}')">✅ Ich bin fertig</button>`;
+      }
 
       const startInfo = a.gestartet_von
         ? `<div style="font-size:0.78rem;color:#6b7280;margin-bottom:8px">▶ Gestartet von: ${a.gestartet_von}</div>` : '';
-
-      const aktionBtn = istGeplant
-        ? `<button class="btn-fertig" style="background:#2563eb" onclick="startenAnfragen('${a.id}')">▶ Auftrag starten</button>`
-        : `<button class="btn-fertig" onclick="fertigAnfragen('${a.id}')">✅ Ich bin fertig</button>`;
-
-      const kleinStyle = istGeplant ? 'opacity:0.75' : '';
 
       return `
         <div class="auftrag-card" style="${kleinStyle}">
@@ -578,6 +596,18 @@ function startenAnfragen(id) {
   document.getElementById('confirm-overlay').dataset.aktion = 'starten';
 }
 
+// ── Fortsetzen ──
+function fortsetzenAnfragen(id) {
+  const a = aktuelleAuftraege.find(x => x.id === id);
+  zuErledigenId = id;
+  document.getElementById('confirm-titel').textContent = `"${a.kunde || a.auftragsnummer}" fortsetzen?`;
+  document.getElementById('confirm-text').textContent = `Der pausierte Auftrag wird fortgesetzt.`;
+  document.querySelector('.btn-confirm-ja').textContent = '▶ Ja, fortsetzen!';
+  document.querySelector('.btn-confirm-ja').style.background = '#7c3aed';
+  document.getElementById('confirm-overlay').dataset.aktion = 'fortsetzen';
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+
 // ── Fertigmelden ──
 function fertigAnfragen(id) {
   const a = aktuelleAuftraege.find(x => x.id === id);
@@ -607,21 +637,28 @@ async function fertigBestaetigen() {
       startzeit: new Date().toISOString(),
       gestartet_von: aktiverMitarbeiter.name
     });
-    document.getElementById('erfolg-titel').textContent = 'Auftrag gestartet!';
-    const a = aktuelleAuftraege.find(x => x.id === zuErledigenId);
-    document.getElementById('erfolg-text').textContent = `Gestartet von: ${aktiverMitarbeiter.name}`;
-    document.getElementById('erfolg-zeit').innerHTML = `<div style="color:#93c5fd;font-size:1rem;margin:12px 0">▶ Timer läuft jetzt</div>`;
-    zeigScreen('screen-erfolg');
     zuErledigenId = null;
+    await ladeAuftraege();
+    return;
+  }
+
+  if (aktion === 'fortsetzen') {
+    const a = aktuelleAuftraege.find(x => x.id === zuErledigenId);
+    const zusatz = a.pausiert_seit ? (new Date() - new Date(a.pausiert_seit)) / 3600000 : 0;
+    await sbPatch(`auftraege?id=eq.${zuErledigenId}`, {
+      status: 'aktiv',
+      pausiert_seit: null,
+      pause_gesamt: (a.pause_gesamt || 0) + zusatz
+    });
+    zuErledigenId = null;
+    await ladeAuftraege();
     return;
   }
 
   const a = aktuelleAuftraege.find(x => x.id === zuErledigenId);
   const jetzt = new Date().toISOString();
-
-  // Tatsächliche Laufzeit berechnen
   const elapsed = getElapsedHours(a);
-  const diff = a.geplante_stunden - elapsed; // positiv = früher, negativ = überzogen
+  const diff = a.geplante_stunden - elapsed;
 
   await sbPatch(`auftraege?id=eq.${zuErledigenId}`, {
     status: 'erledigt',
@@ -629,7 +666,7 @@ async function fertigBestaetigen() {
     erledigt_von: aktiverMitarbeiter.name
   });
 
-  // Erfolgsscreen
+  // Kurz Erfolg zeigen, dann zurück zur Liste
   document.getElementById('erfolg-titel').textContent = `Auftrag erledigt!`;
   document.getElementById('erfolg-text').textContent = `Gemeldet von: ${aktiverMitarbeiter.name}`;
 
@@ -642,9 +679,11 @@ async function fertigBestaetigen() {
     zeitHtml = `<div style="color:#9ca3af;font-size:1rem;margin:12px 0">Genau pünktlich ✓</div>`;
   }
   document.getElementById('erfolg-zeit').innerHTML = zeitHtml;
-
   zeigScreen('screen-erfolg');
   zuErledigenId = null;
+
+  // Nach 3 Sekunden automatisch zurück zur Auftragsliste
+  setTimeout(() => ladeAuftraege(), 3000);
 }
 
 // ── Navigation ──
