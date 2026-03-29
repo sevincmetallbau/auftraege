@@ -624,19 +624,44 @@ function render(daten) {
     </tr>`;
   }).join('');
 
-  // Nach dem Rendern: nur ganze Zeilen zeigen die reinpassen
+  // Nach dem Rendern: Größe anpassen damit alle aktiven reinpassen
   requestAnimationFrame(() => zeilenAnpassen());
 }
 
 function zeilenAnpassen() {
   const main = document.querySelector('main');
-  const mainBottom = main.getBoundingClientRect().bottom;
-  const rows = document.querySelectorAll('#auftrag-tbody tr');
+  const tableWrap = document.querySelector('.table-wrap');
+  const rows = Array.from(document.querySelectorAll('#auftrag-tbody tr'));
+  if (!rows.length) return;
 
-  // Erst alle sichtbar machen
+  // Alle sichtbar machen
   rows.forEach(r => r.style.display = '');
 
-  // Dann von unten her ausblenden was nicht passt
+  // Skalierung: von 100% runter bis alle aktiven Aufträge reinpassen
+  let scale = 100;
+  const minScale = 55;
+
+  while (scale >= minScale) {
+    // Schriftgrößen anpassen
+    tableWrap.style.fontSize = scale + '%';
+
+    const mainBottom = main.getBoundingClientRect().bottom;
+
+    // Prüfen ob alle aktiven Zeilen reinpassen
+    let alleAktivenPassen = true;
+    rows.forEach(r => {
+      if (!r.classList.contains('row-klein')) {
+        const rect = r.getBoundingClientRect();
+        if (rect.bottom > mainBottom) alleAktivenPassen = false;
+      }
+    });
+
+    if (alleAktivenPassen) break;
+    scale -= 5;
+  }
+
+  // Jetzt nicht-aktive Zeilen ausblenden die nicht reinpassen
+  const mainBottom = main.getBoundingClientRect().bottom;
   for (let i = rows.length - 1; i >= 0; i--) {
     const rect = rows[i].getBoundingClientRect();
     if (rect.bottom > mainBottom) {
