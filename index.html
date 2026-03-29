@@ -634,37 +634,44 @@ function zeilenAnpassen() {
   const rows = Array.from(document.querySelectorAll('#auftrag-tbody tr'));
   if (!rows.length) return;
 
-  // Alle sichtbar machen
+  // Reset
   rows.forEach(r => r.style.display = '');
+  tableWrap.style.transform = '';
+  tableWrap.style.transformOrigin = 'top left';
+  tableWrap.style.width = '';
 
-  // Skalierung: von 100% runter bis alle aktiven Aufträge reinpassen
-  let scale = 100;
-  const minScale = 55;
+  const mainHeight = main.clientHeight;
+
+  // Skalierung: von 1.0 runter bis alle aktiven Aufträge reinpassen
+  let scale = 1.0;
+  const minScale = 0.5;
 
   while (scale >= minScale) {
-    // Schriftgrößen anpassen
-    tableWrap.style.fontSize = scale + '%';
+    tableWrap.style.transform = `scale(${scale})`;
+    tableWrap.style.width = (100 / scale) + '%';
 
-    const mainBottom = main.getBoundingClientRect().bottom;
-
-    // Prüfen ob alle aktiven Zeilen reinpassen
-    let alleAktivenPassen = true;
+    // Letzte aktive Zeile finden (nicht row-klein)
+    let letzteAktive = null;
     rows.forEach(r => {
-      if (!r.classList.contains('row-klein')) {
-        const rect = r.getBoundingClientRect();
-        if (rect.bottom > mainBottom) alleAktivenPassen = false;
-      }
+      r.style.display = '';
+      if (!r.classList.contains('row-klein')) letzteAktive = r;
     });
 
-    if (alleAktivenPassen) break;
-    scale -= 5;
+    if (!letzteAktive) break;
+
+    // Prüfen ob letzte aktive Zeile reinpasst (skalierte Position)
+    const rect = letzteAktive.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
+    if (rect.bottom <= mainRect.bottom) break;
+
+    scale -= 0.03;
   }
 
-  // Jetzt nicht-aktive Zeilen ausblenden die nicht reinpassen
-  const mainBottom = main.getBoundingClientRect().bottom;
+  // Nicht-aktive Zeilen ausblenden die nicht reinpassen
+  const mainRect = main.getBoundingClientRect();
   for (let i = rows.length - 1; i >= 0; i--) {
     const rect = rows[i].getBoundingClientRect();
-    if (rect.bottom > mainBottom) {
+    if (rect.bottom > mainRect.bottom) {
       rows[i].style.display = 'none';
     }
   }
