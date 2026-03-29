@@ -561,8 +561,8 @@ function render(daten) {
 
     // Laufzeit (groß)
     const laufzeitZelle = a.startzeit
-      ? `<div class="zeit-label">Laufzeit</div><div class="zeit-wert-gross">${formatDauer(elapsed)}${a.status==='pausiert' ? ' <span style="color:#c4b5fd;font-size:1rem">⏸</span>' : ''}</div>`
-      : `<div class="zeit-label">Laufzeit</div><div class="zeit-wert-gross" style="color:#4b5563">–</div>`;
+      ? `<div class="zeit-label">Laufzeit</div><div class="zeit-wert">${formatDauer(elapsed)}${a.status==='pausiert' ? ' <span style="color:#c4b5fd;font-size:0.9rem">⏸</span>' : ''}</div>`
+      : `<div class="zeit-label">Laufzeit</div><div class="zeit-wert" style="color:#4b5563">–</div>`;
 
     // Restzeit (groß)
     let restZelle;
