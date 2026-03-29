@@ -216,10 +216,12 @@
     display: block;
   }
 
-  .stripe.gruen  { background: #28a745; }
-  .stripe.orange { background: #fd7e14; }
-  .stripe.rot    { background: #dc3545; }
-  .stripe.neutral { background: #555; }
+  .stripe.gruen    { background: #28a745; }
+  .stripe.orange   { background: #fd7e14; }
+  .stripe.rot      { background: #dc3545; }
+  .stripe.neutral  { background: #555; }
+  .stripe.geplant  { background: #3d8bcd; }
+  .stripe.pausiert { background: #9b59b6; }
 
   .auftrag-nr-cell { font-weight: 700; color: #fff; }
 
@@ -262,7 +264,10 @@
   .btn-edit   { background: #0f3460; color: #7dc3ff; }
   .btn-done   { background: rgba(40,167,69,0.2); color: #5cb85c; border: 1px solid #28a745; }
   .btn-delete { background: rgba(220,53,69,0.15); color: #f55; border: 1px solid #dc3545; }
-  .btn-restore { background: rgba(15,52,96,0.5); color: #7dc3ff; border: 1px solid #0f3460; }
+  .btn-restore  { background: rgba(15,52,96,0.5);    color: #7dc3ff; border: 1px solid #0f3460; }
+  .btn-pause    { background: rgba(155,89,182,0.2);  color: #c39bd3; border: 1px solid #9b59b6; }
+  .btn-resume   { background: rgba(61,139,205,0.2);  color: #7dc3ff; border: 1px solid #3d8bcd; }
+  .btn-start    { background: rgba(40,167,69,0.2);   color: #5cb85c; border: 1px solid #28a745; }
 
   .actions-cell { white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 
@@ -711,14 +716,19 @@ async function ladeMitarbeiter() {
 }
 
 // ─── RENDER ────────────────────────────────────────────
-function getElapsedHours(startzeit) {
-  if (!startzeit) return 0;
-  return (new Date() - new Date(startzeit)) / 3600000;
+function getElapsedHours(a) {
+  if (!a.startzeit) return 0;
+  const start = new Date(a.startzeit);
+  // Pausiert: Timer eingefroren bei pausiert_seit
+  const ref = (a.status === 'pausiert' && a.pausiert_seit)
+    ? new Date(a.pausiert_seit) : new Date();
+  return Math.max(0, (ref - start) / 3600000 - (a.pause_gesamt || 0));
 }
 
 function getStatusClass(a) {
-  if (!a.startzeit) return 'neutral';
-  const pct = getElapsedHours(a.startzeit) / a.geplante_stunden;
+  if (a.status === 'geplant' || !a.startzeit) return 'geplant';
+  if (a.status === 'pausiert') return 'pausiert';
+  const pct = getElapsedHours(a) / a.geplante_stunden;
   if (pct >= 1) return 'rot';
   if (pct >= 0.75) return 'orange';
   return 'gruen';
@@ -752,26 +762,40 @@ function render() {
   } else {
     ta.innerHTML = aktiv.map(a => {
       const st = getStatusClass(a);
-      const elapsed = getElapsedHours(a.startzeit);
+      const elapsed = getElapsedHours(a);
       const pct = a.startzeit ? Math.min((elapsed / a.geplante_stunden) * 100, 100) : 0;
       const rest = a.geplante_stunden - elapsed;
-      const ueberzogen = rest < 0;
+      const ueberzogen = rest < 0 && a.startzeit;
 
-      const restCell = a.startzeit
-        ? (ueberzogen
-            ? `<span class="zeit-ueberzogen">+${formatDauer(Math.abs(rest))}</span>`
-            : formatDauer(rest))
-        : '–';
+      const restCell = !a.startzeit
+        ? '–'
+        : ueberzogen
+          ? `<span class="zeit-ueberzogen">+${formatDauer(Math.abs(rest))}</span>`
+          : formatDauer(rest);
 
       const fortschritt = a.startzeit
-        ? `<div class="progress-mini"><div class="progress-mini-fill fill-${st}" style="width:${pct}%"></div></div> ${Math.round(elapsed / a.geplante_stunden * 100)}%`
+        ? `<div class="progress-mini"><div class="progress-mini-fill fill-${st}" style="width:${pct}%"></div></div> ${Math.round(pct)}%`
         : '–';
+
+      // Aktionen je nach Status
+      let aktionen = '';
+      if (a.status === 'geplant') {
+        aktionen = `<button class="btn-action btn-start" onclick="starten('${a.id}')">▶ Starten</button>`;
+      } else if (a.status === 'aktiv') {
+        aktionen = `<button class="btn-action btn-pause" onclick="pausieren('${a.id}')">⏸ Pause</button>
+                    <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>`;
+      } else if (a.status === 'pausiert') {
+        aktionen = `<button class="btn-action btn-resume" onclick="fortsetzen('${a.id}')">▶ Weiter</button>
+                    <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>`;
+      }
+
+      const statusLabels = { geplant:'Geplant', aktiv:'', pausiert:'Pausiert' };
 
       return `<tr>
         <td class="status-stripe-cell"><div class="stripe ${st}" style="height:42px"></div></td>
         <td class="auftrag-nr-cell">${a.auftragsnummer || '–'}</td>
         <td>${a.kunde || '–'}</td>
-        <td>${a.beschreibung || '–'}</td>
+        <td>${a.beschreibung || '–'}${a.status !== 'aktiv' ? ` <span style="font-size:0.75rem;color:#9b59b6">${statusLabels[a.status]||''}</span>` : ''}</td>
         <td>${a.mitarbeiter || '–'}</td>
         <td class="zeit-col">${formatDt(a.startzeit)}</td>
         <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] : formatDauer(a.geplante_stunden)}</td>
@@ -780,8 +804,8 @@ function render() {
         <td>${fortschritt}</td>
         <td>
           <div class="actions-cell">
+            ${aktionen}
             <button class="btn-action btn-edit" onclick="modalBearbeiten('${a.id}')">✏️</button>
-            <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>
             <button class="btn-action btn-delete" onclick="loeschenBestaetigen('${a.id}', '${(a.auftragsnummer||'').replace(/'/g,"\\'")}')">🗑️</button>
           </div>
         </td>
@@ -915,11 +939,16 @@ async function speichern() {
 
   try {
     if (editId) {
+      // Status beim Bearbeiten nicht überschreiben wenn schon aktiv/pausiert
+      const bestehend = alleAuftraege.find(x => x.id === editId);
+      const behalteStatus = bestehend && ['aktiv','pausiert'].includes(bestehend.status);
+      if (!behalteStatus) daten.status = daten.startzeit ? 'aktiv' : 'geplant';
       await sbFetch(`auftraege?id=eq.${editId}`, 'PATCH', daten);
       toast('Auftrag aktualisiert');
     } else {
-      await sbFetch('auftraege', 'POST', { ...daten, status: 'aktiv' });
-      toast('Auftrag angelegt');
+      const neuerStatus = daten.startzeit ? 'aktiv' : 'geplant';
+      await sbFetch('auftraege', 'POST', { ...daten, status: neuerStatus });
+      toast(neuerStatus === 'geplant' ? 'Auftrag als geplant eingetragen' : 'Auftrag gestartet');
     }
     modalSchliessen();
     await ladeAuftraege();
@@ -929,6 +958,42 @@ async function speichern() {
 }
 
 // ─── AKTIONEN ──────────────────────────────────────────
+async function starten(id) {
+  try {
+    await sbFetch(`auftraege?id=eq.${id}`, 'PATCH', {
+      status: 'aktiv',
+      startzeit: new Date().toISOString()
+    });
+    toast('Auftrag gestartet ▶');
+    await ladeAuftraege();
+  } catch(e) { toast('Fehler: ' + e.message, true); }
+}
+
+async function pausieren(id) {
+  try {
+    await sbFetch(`auftraege?id=eq.${id}`, 'PATCH', {
+      status: 'pausiert',
+      pausiert_seit: new Date().toISOString()
+    });
+    toast('Auftrag pausiert ⏸');
+    await ladeAuftraege();
+  } catch(e) { toast('Fehler: ' + e.message, true); }
+}
+
+async function fortsetzen(id) {
+  try {
+    const a = alleAuftraege.find(x => x.id === id);
+    const zusatz = a.pausiert_seit ? (new Date() - new Date(a.pausiert_seit)) / 3600000 : 0;
+    await sbFetch(`auftraege?id=eq.${id}`, 'PATCH', {
+      status: 'aktiv',
+      pausiert_seit: null,
+      pause_gesamt: (a.pause_gesamt || 0) + zusatz
+    });
+    toast('Auftrag fortgesetzt ▶');
+    await ladeAuftraege();
+  } catch(e) { toast('Fehler: ' + e.message, true); }
+}
+
 async function alsErledigt(id) {
   try {
     await sbFetch(`auftraege?id=eq.${id}`, 'PATCH', {
