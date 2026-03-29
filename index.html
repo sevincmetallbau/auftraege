@@ -38,7 +38,12 @@
     letter-spacing: 1px;
   }
 
-  .header-logo h1 span { color: #e94560; }
+  .header-logo h1 span {
+    background: linear-gradient(180deg, #f0f0f0, #c0c0c0, #a0a0a0, #c0c0c0, #e8e8e8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 
   .header-right {
     display: flex;
