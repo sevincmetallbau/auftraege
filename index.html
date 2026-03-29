@@ -623,6 +623,26 @@ function render(daten) {
       </td>
     </tr>`;
   }).join('');
+
+  // Nach dem Rendern: nur ganze Zeilen zeigen die reinpassen
+  requestAnimationFrame(() => zeilenAnpassen());
+}
+
+function zeilenAnpassen() {
+  const main = document.querySelector('main');
+  const mainBottom = main.getBoundingClientRect().bottom;
+  const rows = document.querySelectorAll('#auftrag-tbody tr');
+
+  // Erst alle sichtbar machen
+  rows.forEach(r => r.style.display = '');
+
+  // Dann von unten her ausblenden was nicht passt
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const rect = rows[i].getBoundingClientRect();
+    if (rect.bottom > mainBottom) {
+      rows[i].style.display = 'none';
+    }
+  }
 }
 
 ladeAuftraege();
