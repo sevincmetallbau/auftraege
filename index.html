@@ -248,6 +248,18 @@
     white-space: nowrap;
   }
 
+  /* Große Zeitwerte für Laufzeit & Restzeit */
+  .zeit-wert-gross {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #f9fafb;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    line-height: 1.1;
+  }
+
+  tr.row-klein .zeit-wert-gross { font-size: 1.4rem; }
+
   .zeit-label {
     font-size: 0.75rem;
     color: #6b7280;
@@ -428,7 +440,6 @@
         <tr>
           <th></th>
           <th>Auftrag / Kunde</th>
-          <th>Mitarbeiter</th>
           <th>Status</th>
           <th>Fertigstellung</th>
           <th>Laufzeit</th>
@@ -437,7 +448,7 @@
         </tr>
       </thead>
       <tbody id="auftrag-tbody">
-        <tr><td colspan="8"><div class="leer"><div class="leer-icon">⏳</div><div class="leer-text">Lade Aufträge…</div></div></td></tr>
+        <tr><td colspan="7"><div class="leer"><div class="leer-icon">⏳</div><div class="leer-text">Lade Aufträge…</div></div></td></tr>
       </tbody>
     </table>
   </div>
@@ -521,7 +532,7 @@ async function ladeAuftraege() {
     render(daten);
   } catch(e) {
     document.getElementById('auftrag-tbody').innerHTML =
-      '<tr><td colspan="8"><div class="leer"><div class="leer-icon">⚠️</div><div class="leer-text">Verbindungsfehler – Seite neu laden</div></div></td></tr>';
+      '<tr><td colspan="7"><div class="leer"><div class="leer-icon">⚠️</div><div class="leer-text">Verbindungsfehler – Seite neu laden</div></div></td></tr>';
   }
 }
 
@@ -530,7 +541,7 @@ function render(daten) {
   const tbody = document.getElementById('auftrag-tbody');
 
   if (!daten || daten.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8"><div class="leer"><div class="leer-icon">✅</div><div class="leer-text">Keine aktiven Aufträge</div></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="leer"><div class="leer-icon">✅</div><div class="leer-text">Keine aktiven Aufträge</div></div></td></tr>';
     return;
   }
 
@@ -548,25 +559,25 @@ function render(daten) {
       ? `<div class="zeit-label">Bis Datum</div><div class="zeit-wert" style="font-size:1.1rem">📅 ${formatDatum(a.zieldatum)}</div>`
       : `<div class="zeit-label">Geplant</div><div class="zeit-wert">${formatDauer(a.geplante_stunden)}</div>`;
 
-    // Laufzeit
+    // Laufzeit (groß)
     const laufzeitZelle = a.startzeit
-      ? `<div class="zeit-label">Laufzeit</div><div class="zeit-wert">${formatDauer(elapsed)}${a.status==='pausiert' ? ' <span style="color:#c4b5fd;font-size:0.8rem">⏸</span>' : ''}</div>`
-      : `<div class="zeit-label">Laufzeit</div><div class="zeit-wert" style="color:#4b5563">–</div>`;
+      ? `<div class="zeit-label">Laufzeit</div><div class="zeit-wert-gross">${formatDauer(elapsed)}${a.status==='pausiert' ? ' <span style="color:#c4b5fd;font-size:1rem">⏸</span>' : ''}</div>`
+      : `<div class="zeit-label">Laufzeit</div><div class="zeit-wert-gross" style="color:#4b5563">–</div>`;
 
-    // Restzeit
+    // Restzeit (groß)
     let restZelle;
     if (!a.startzeit || a.status === 'geplant') {
-      restZelle = `<div class="zeit-label">Restzeit</div><div class="zeit-wert" style="color:#4b5563">–</div>`;
+      restZelle = `<div class="zeit-label">Restzeit</div><div class="zeit-wert-gross" style="color:#4b5563">–</div>`;
     } else if (ueberzogen) {
-      restZelle = `<div class="zeit-label">Überzogen</div><div class="zeit-wert zeit-ueberzogen blink">+${formatDauer(Math.abs(rest))}</div>`;
+      restZelle = `<div class="zeit-label">Überzogen</div><div class="zeit-wert-gross zeit-ueberzogen blink">+${formatDauer(Math.abs(rest))}</div>`;
     } else {
-      restZelle = `<div class="zeit-label">Restzeit</div><div class="zeit-wert">${formatDauer(rest)}</div>`;
+      restZelle = `<div class="zeit-label">Restzeit</div><div class="zeit-wert-gross">${formatDauer(rest)}</div>`;
     }
 
-    // Mitarbeiter
-    const mitarbeiter = (a.mitarbeiter && a.mitarbeiter.length)
-      ? a.mitarbeiter.map(m => `<span class="ma-badge">${m}</span>`).join('')
-      : '<span style="color:#4b5563">–</span>';
+    // Mitarbeiter (jetzt unter Kundename)
+    const mitarbeiterBadges = (a.mitarbeiter && a.mitarbeiter.length)
+      ? `<div class="ma-badges" style="margin-top:6px">${a.mitarbeiter.map(m => `<span class="ma-badge">${m}</span>`).join('')}</div>`
+      : '';
 
     const kleinRow = (a.status !== 'aktiv') ? ' row-klein' : '';
     return `<tr class="${kleinRow}">
@@ -576,6 +587,7 @@ function render(daten) {
           <div class="auftrag-nr">${a.auftragsnummer || ''}</div>
           <div class="kunde-name">${a.kunde || '–'}</div>
           ${a.beschreibung ? `<div class="beschreibung">${a.beschreibung}</div>` : ''}
+          ${mitarbeiterBadges}
           ${a.status === 'geplant' ? `<div class="geplant-info">🕐 Noch nicht gestartet</div>` : ''}
           ${a.gestartet_von ? `<div style="font-size:0.78rem;color:#6b7280;margin-top:2px">▶ ${a.gestartet_von}</div>` : ''}
           ${a.notiz ? `<div class="notiz">📝 ${a.notiz}</div>` : ''}
@@ -583,13 +595,8 @@ function render(daten) {
       </td>
       <td>
         <div class="td-inner">
-          <div class="ma-badges">${mitarbeiter}</div>
-        </div>
-      </td>
-      <td>
-        <div class="td-inner">
           <span class="status-badge badge-${st}">${badgeText}</span>
-          ${a.startzeit && a.status === 'aktiv' ? `<div style="font-size:0.8rem;color:#6b7280;margin-top:6px">Start: ${formatDatetime(a.startzeit)}</div>` : ''}
+          ${a.startzeit && a.status === 'aktiv' ? `<div style="font-size:0.78rem;color:#6b7280;margin-top:6px">Start: ${formatDatetime(a.startzeit)}</div>` : ''}
         </div>
       </td>
       <td><div class="td-inner">${geplantZelle}</div></td>
