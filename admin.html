@@ -597,8 +597,12 @@
         </div>
       </div>
       <div class="form-group">
-        <label>Startzeit</label>
-        <input type="datetime-local" id="f-startzeit">
+        <label>Startzeit <span style="color:#555;font-weight:400;text-transform:none;font-size:0.78rem">– leer lassen = Geplant</span></label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="datetime-local" id="f-startzeit" style="flex:1">
+          <button type="button" onclick="startzeitJetzt()" style="background:#0f3460;color:#7dc3ff;border:none;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:0.82rem;white-space:nowrap;font-weight:600" title="Aktuelle Uhrzeit eintragen">Jetzt</button>
+          <button type="button" onclick="document.getElementById('f-startzeit').value=''" style="background:#1a1a2e;color:#555;border:1px solid #333;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:0.82rem;font-weight:600" title="Startzeit leeren">✕</button>
+        </div>
       </div>
       <div class="form-group full">
         <label>Zeitplanung *</label>
@@ -670,6 +674,12 @@ async function init() {
   await ladeAuftraege();
   await ladeMitarbeiter();
   setInterval(ladeAuftraege, 30000);
+}
+
+function startzeitJetzt() {
+  const jetzt = new Date();
+  jetzt.setMinutes(jetzt.getMinutes() - jetzt.getTimezoneOffset());
+  document.getElementById('f-startzeit').value = jetzt.toISOString().slice(0, 16);
 }
 
 function planungToggle() {
@@ -899,9 +909,7 @@ async function modalOeffnen() {
   document.getElementById('f-kunde').value = '';
   document.getElementById('f-beschreibung').value = '';
   renderMitarbeiterChecks([]);
-  const jetzt = new Date();
-  jetzt.setMinutes(jetzt.getMinutes() - jetzt.getTimezoneOffset());
-  document.getElementById('f-startzeit').value = jetzt.toISOString().slice(0,16);
+  document.getElementById('f-startzeit').value = '';
   document.getElementById('r-stunden').checked = true;
   document.getElementById('f-stunden').value = '';
   document.getElementById('f-zieldatum').value = '';
