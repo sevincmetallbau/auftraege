@@ -504,39 +504,58 @@ async function pinPruefen() {
 
 // ── Aufträge ──
 async function ladeAuftraege() {
-  aktuelleAuftraege = await sbFetch('auftraege?status=in.(aktiv,pausiert)&order=created_at.asc');
+  aktuelleAuftraege = await sbFetch('auftraege?status=in.(aktiv,pausiert,geplant)&order=created_at.asc');
   const name = aktiverMitarbeiter.name;
   document.getElementById('auftraege-titel').textContent = `Hallo ${name.split(' ')[0]}!`;
 
   const liste = document.getElementById('auftraege-liste');
 
+  // Sortierung: aktiv oben, pausiert mitte, geplant unten
+  const reihenfolge = { aktiv: 0, pausiert: 1, geplant: 2 };
+  aktuelleAuftraege.sort((a, b) => (reihenfolge[a.status] ?? 9) - (reihenfolge[b.status] ?? 9));
+
   if (!aktuelleAuftraege.length) {
-    liste.innerHTML = '<div class="kein-auftrag"><div class="kein-auftrag-icon">🎉</div><div>Keine laufenden Aufträge</div></div>';
+    liste.innerHTML = '<div class="kein-auftrag"><div class="kein-auftrag-icon">🎉</div><div>Keine Aufträge vorhanden</div></div>';
   } else {
     liste.innerHTML = aktuelleAuftraege.map(a => {
       const elapsed = getElapsedHours(a);
       const rest = a.geplante_stunden - elapsed;
       const ueberzogen = rest < 0;
       const st = getStatusClass(a);
+      const istGeplant = a.status === 'geplant';
+
+      const zeitInfo = !istGeplant ? `
+        <div class="card-zeiten">
+          <div class="card-zeit-item">
+            <div class="card-zeit-label">Laufzeit</div>
+            <div class="card-zeit-wert">${formatDauer(elapsed)}</div>
+          </div>
+          <div class="card-zeit-item">
+            <div class="card-zeit-label">${ueberzogen ? 'Überzogen' : 'Restzeit'}</div>
+            <div class="card-zeit-wert ${ueberzogen ? 'rot' : ''}">${ueberzogen ? '+' : ''}${formatDauer(Math.abs(rest))}</div>
+          </div>
+        </div>` : `<div style="color:#93c5fd;font-size:0.88rem;margin-bottom:10px">🕐 Noch nicht gestartet</div>`;
+
+      const startInfo = a.gestartet_von
+        ? `<div style="font-size:0.78rem;color:#6b7280;margin-bottom:8px">▶ Gestartet von: ${a.gestartet_von}</div>` : '';
+
+      const aktionBtn = istGeplant
+        ? `<button class="btn-fertig" style="background:#2563eb" onclick="startenAnfragen('${a.id}')">▶ Auftrag starten</button>`
+        : `<button class="btn-fertig" onclick="fertigAnfragen('${a.id}')">✅ Ich bin fertig</button>`;
+
+      const kleinStyle = istGeplant ? 'opacity:0.75' : '';
+
       return `
-        <div class="auftrag-card">
+        <div class="auftrag-card" style="${kleinStyle}">
           <div class="card-stripe ${st}"></div>
           <div class="card-inhalt">
             <div class="card-nr">${a.auftragsnummer || ''}</div>
             <div class="card-kunde">${a.kunde || '–'}</div>
             ${a.beschreibung ? `<div class="card-desc">${a.beschreibung}</div>` : ''}
-            <div class="card-zeiten">
-              <div class="card-zeit-item">
-                <div class="card-zeit-label">Laufzeit</div>
-                <div class="card-zeit-wert">${formatDauer(elapsed)}</div>
-              </div>
-              <div class="card-zeit-item">
-                <div class="card-zeit-label">${ueberzogen ? 'Überzogen' : 'Restzeit'}</div>
-                <div class="card-zeit-wert ${ueberzogen ? 'rot' : ''}">${ueberzogen ? '+' : ''}${formatDauer(Math.abs(rest))}</div>
-              </div>
-            </div>
+            ${zeitInfo}
+            ${startInfo}
             ${(a.mitarbeiter && a.mitarbeiter.length) ? `<div class="card-ma">${a.mitarbeiter.map(m => `<span class="card-ma-badge">${m}</span>`).join('')}</div>` : ''}
-            <button class="btn-fertig" onclick="fertigAnfragen('${a.id}')">✅ Ich bin fertig</button>
+            ${aktionBtn}
           </div>
         </div>`;
     }).join('');
@@ -545,12 +564,29 @@ async function ladeAuftraege() {
   zeigScreen('screen-auftraege');
 }
 
+// ── Starten ──
+function startenAnfragen(id) {
+  const a = aktuelleAuftraege.find(x => x.id === id);
+  zuErledigenId = id;
+  document.getElementById('confirm-titel').textContent = `"${a.kunde || a.auftragsnummer}" starten?`;
+  document.getElementById('confirm-text').textContent = `Der Auftrag wird jetzt gestartet. Dein Name wird als Starter eingetragen.`;
+  // Temporär Bestätigen-Button auf "Starten" umstellen
+  document.querySelector('.btn-confirm-ja').textContent = '▶ Ja, jetzt starten!';
+  document.querySelector('.btn-confirm-ja').style.background = '#2563eb';
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+  // Flag setzen
+  document.getElementById('confirm-overlay').dataset.aktion = 'starten';
+}
+
 // ── Fertigmelden ──
 function fertigAnfragen(id) {
   const a = aktuelleAuftraege.find(x => x.id === id);
   zuErledigenId = id;
   document.getElementById('confirm-titel').textContent = `"${a.kunde || a.auftragsnummer}" als erledigt markieren?`;
   document.getElementById('confirm-text').textContent = `Du meldest diesen Auftrag als fertig. Dein Name wird eingetragen.`;
+  document.querySelector('.btn-confirm-ja').textContent = '✅ Ja, fertig!';
+  document.querySelector('.btn-confirm-ja').style.background = '#16a34a';
+  document.getElementById('confirm-overlay').dataset.aktion = 'fertig';
   document.getElementById('confirm-overlay').classList.remove('hidden');
 }
 
@@ -562,6 +598,23 @@ function confirmAbbrechen() {
 async function fertigBestaetigen() {
   document.getElementById('confirm-overlay').classList.add('hidden');
   if (!zuErledigenId) return;
+
+  const aktion = document.getElementById('confirm-overlay').dataset.aktion;
+
+  if (aktion === 'starten') {
+    await sbPatch(`auftraege?id=eq.${zuErledigenId}`, {
+      status: 'aktiv',
+      startzeit: new Date().toISOString(),
+      gestartet_von: aktiverMitarbeiter.name
+    });
+    document.getElementById('erfolg-titel').textContent = 'Auftrag gestartet!';
+    const a = aktuelleAuftraege.find(x => x.id === zuErledigenId);
+    document.getElementById('erfolg-text').textContent = `Gestartet von: ${aktiverMitarbeiter.name}`;
+    document.getElementById('erfolg-zeit').innerHTML = `<div style="color:#93c5fd;font-size:1rem;margin:12px 0">▶ Timer läuft jetzt</div>`;
+    zeigScreen('screen-erfolg');
+    zuErledigenId = null;
+    return;
+  }
 
   const a = aktuelleAuftraege.find(x => x.id === zuErledigenId);
   const jetzt = new Date().toISOString();

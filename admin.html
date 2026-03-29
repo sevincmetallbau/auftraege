@@ -537,6 +537,9 @@
   <div class="tab" id="tab-erledigt" onclick="wechseTab('erledigt')">
     Erledigt <span class="tab-badge" id="badge-erledigt" style="background:#555">0</span>
   </div>
+  <div class="tab" id="tab-mitarbeiter" onclick="wechseTab('mitarbeiter')">
+    👷 Mitarbeiter
+  </div>
 </div>
 
 <!-- MAIN -->
@@ -560,6 +563,23 @@
         </tr></thead>
         <tbody id="tbody-aktiv"><tr><td colspan="11" class="leer">Lade…</td></tr></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Mitarbeiter -->
+  <div class="tab-content" id="content-mitarbeiter">
+    <div style="max-width:600px">
+      <div style="margin-bottom:16px;color:#888;font-size:0.88rem">Hier kannst du PINs für alle Mitarbeiter setzen. Der PIN wird beim Fertigmelden und Starten von Aufträgen verwendet.</div>
+      <div class="auftrag-table-wrap">
+        <table>
+          <thead><tr>
+            <th>Name</th>
+            <th>PIN (4-stellig)</th>
+            <th>Aktion</th>
+          </tr></thead>
+          <tbody id="tbody-mitarbeiter"><tr><td colspan="3" class="leer">Lädt…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -865,7 +885,7 @@ function render() {
         <td>${a.kunde || '–'}</td>
         <td>${a.beschreibung || '–'}${a.status !== 'aktiv' ? ` <span style="font-size:0.75rem;color:#9b59b6">${statusLabels[a.status]||''}</span>` : ''}</td>
         <td>${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</td>
-        <td class="zeit-col">${formatDt(a.startzeit)}</td>
+        <td class="zeit-col">${formatDt(a.startzeit)}${a.gestartet_von ? `<br><span style="font-size:0.75rem;color:#7dc3ff">▶ ${a.gestartet_von}</span>` : ''}</td>
         <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] : formatDauer(a.geplante_stunden)}</td>
         <td class="zeit-col">${a.startzeit ? formatDauer(elapsed) : '–'}</td>
         <td class="zeit-col">${restCell}</td>
@@ -919,10 +939,46 @@ function render() {
 
 // ─── TABS ──────────────────────────────────────────────
 function wechseTab(name) {
-  ['aktiv','erledigt'].forEach(t => {
+  ['aktiv','erledigt','mitarbeiter'].forEach(t => {
     document.getElementById(`tab-${t}`).classList.toggle('aktiv', t === name);
     document.getElementById(`content-${t}`).classList.toggle('aktiv', t === name);
   });
+  if (name === 'mitarbeiter') renderMitarbeiterTab();
+}
+
+async function renderMitarbeiterTab() {
+  const tbody = document.getElementById('tbody-mitarbeiter');
+  try {
+    const liste = await sbFetch('mitarbeiter?order=name.asc');
+    if (!liste.length) { tbody.innerHTML = '<tr><td colspan="3" class="leer">Keine Mitarbeiter</td></tr>'; return; }
+    tbody.innerHTML = liste.map(m => `
+      <tr>
+        <td style="font-weight:700;font-size:1rem">${m.name}</td>
+        <td>
+          <input type="text" id="pin-${m.id}" value="${m.pin || ''}" maxlength="4" inputmode="numeric"
+            style="background:#0f1e3d;border:2px solid #0f3460;border-radius:8px;padding:8px 12px;color:#fff;font-size:1.1rem;width:100px;text-align:center;letter-spacing:4px;outline:none"
+            onkeydown="if(event.key==='Enter') pinSpeichern(${m.id})">
+        </td>
+        <td>
+          <button class="btn-action btn-edit" onclick="pinSpeichern(${m.id})">💾 Speichern</button>
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="3" class="leer">Fehler beim Laden</td></tr>';
+  }
+}
+
+async function pinSpeichern(id) {
+  const input = document.getElementById(`pin-${id}`);
+  const pin = input.value.trim().padStart(4, '0').slice(0, 4);
+  if (!/^\d{4}$/.test(pin)) { toast('PIN muss 4 Ziffern sein!', true); return; }
+  try {
+    await sbFetch(`mitarbeiter?id=eq.${id}`, 'PATCH', { pin });
+    input.value = pin;
+    toast('PIN gespeichert ✓');
+  } catch(e) {
+    toast('Fehler: ' + e.message, true);
+  }
 }
 
 // ─── MODAL ─────────────────────────────────────────────

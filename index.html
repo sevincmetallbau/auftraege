@@ -574,6 +574,7 @@ function render(daten) {
           <div class="kunde-name">${a.kunde || '–'}</div>
           ${a.beschreibung ? `<div class="beschreibung">${a.beschreibung}</div>` : ''}
           ${a.status === 'geplant' ? `<div class="geplant-info">🕐 Noch nicht gestartet</div>` : ''}
+          ${a.gestartet_von ? `<div style="font-size:0.78rem;color:#6b7280;margin-top:2px">▶ ${a.gestartet_von}</div>` : ''}
           ${a.notiz ? `<div class="notiz">📝 ${a.notiz}</div>` : ''}
         </div>
       </td>
