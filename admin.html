@@ -526,6 +526,7 @@
     <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:6px">Mitarbeiter scannen diesen Code</div>
     <div style="font-size:0.85rem;color:#888;margin-bottom:10px">Auftrag fertigmelden – PIN-geschützt</div>
     <a id="qr-link" href="#" target="_blank" style="font-size:0.8rem;color:#7dc3ff;word-break:break-all"></a>
+    <button onclick="qrDrucken()" style="margin-top:10px;background:#374151;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:0.9rem;font-weight:700;cursor:pointer">🖨 QR-Code drucken</button>
   </div>
 </div>
 
@@ -1208,6 +1209,27 @@ function qrToggle() {
     document.getElementById('qr-link').textContent = url;
     box.style.display = 'flex';
   }
+}
+
+function qrDrucken() {
+  const url = document.getElementById('qr-link').textContent;
+  const imgSrc = document.getElementById('qr-img').src;
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>QR-Code Drucken</title>
+    <style>body{font-family:Arial,sans-serif;text-align:center;padding:60px 20px}
+    img{width:300px;height:300px;margin:20px 0}
+    h1{font-size:2rem;margin-bottom:4px}
+    h2{font-size:1.2rem;color:#666;font-weight:normal;margin-bottom:30px}
+    p{font-size:0.9rem;color:#999;margin-top:20px}
+    @media print{.no-print{display:none}}</style></head>
+    <body>
+    <h1>Sevinc Metallbau</h1>
+    <h2>Auftrag fertigmelden</h2>
+    <img src="${imgSrc}" alt="QR Code">
+    <p>QR-Code scannen und mit PIN anmelden</p>
+    <br><button class="no-print" onclick="window.print()" style="padding:12px 30px;font-size:1rem;cursor:pointer">Drucken</button>
+    </body></html>`);
+  w.document.close();
 }
 
 // ─── TOAST ─────────────────────────────────────────────
