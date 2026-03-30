@@ -733,8 +733,26 @@ function neuStart() {
 // ── Hilfsfunktionen ──
 function getElapsedHours(a) {
   if (!a.startzeit) return 0;
+  const start = new Date(a.startzeit);
   const ref = (a.status === 'pausiert' && a.pausiert_seit) ? new Date(a.pausiert_seit) : new Date();
-  return Math.max(0, (ref - new Date(a.startzeit)) / 3600000 - (a.pause_gesamt || 0));
+  const werkstunden = werktageZwischen(start, ref) * 8;
+  const heuteStd = Math.min((ref - startDesTages(ref)) / 3600000, 8);
+  const startStd = Math.min((start - startDesTages(start)) / 3600000, 8);
+  const istGleicherTag = start.toDateString() === ref.toDateString();
+  let total;
+  if (istGleicherTag) {
+    total = Math.max(0, (ref - start) / 3600000);
+    total = Math.min(total, 8);
+  } else {
+    total = werkstunden + heuteStd - startStd;
+  }
+  return Math.max(0, total - (a.pause_gesamt || 0));
+}
+
+function startDesTages(d) {
+  const s = new Date(d);
+  s.setHours(0,0,0,0);
+  return s;
 }
 
 function werktageZwischen(von, bis) {
