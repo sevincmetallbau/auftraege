@@ -759,12 +759,21 @@ async function sbFetch(path, method = 'GET', body = null, extraHeaders = {}) {
   return text ? JSON.parse(text) : [];
 }
 
+let adminRetryCount = 0;
 async function ladeAuftraege() {
   try {
     alleAuftraege = await sbFetch('auftraege?order=created_at.asc');
+    adminRetryCount = 0;
     render();
   } catch(e) {
-    toast('Ladefehler: ' + e.message, true);
+    adminRetryCount++;
+    if (adminRetryCount <= 3) {
+      setTimeout(ladeAuftraege, 5000);
+    } else {
+      toast('Verbindungsfehler – wird erneut versucht', true);
+      adminRetryCount = 0;
+      setTimeout(ladeAuftraege, 10000);
+    }
   }
 }
 

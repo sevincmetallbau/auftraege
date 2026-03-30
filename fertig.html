@@ -436,19 +436,28 @@ async function sbPatch(path, body) {
 }
 
 // ── Init ──
+let initRetryCount = 0;
 async function init() {
-  alleMitarbeiter = await sbFetch('mitarbeiter?order=name.asc');
-  const grid = document.getElementById('ma-grid');
-  if (!alleMitarbeiter.length) {
-    grid.innerHTML = '<div style="text-align:center;color:#4b5563;padding:40px;grid-column:1/-1">Keine Mitarbeiter gefunden</div>';
-    return;
+  try {
+    alleMitarbeiter = await sbFetch('mitarbeiter?order=name.asc');
+    initRetryCount = 0;
+    const grid = document.getElementById('ma-grid');
+    if (!alleMitarbeiter.length) {
+      grid.innerHTML = '<div style="text-align:center;color:#4b5563;padding:40px;grid-column:1/-1">Keine Mitarbeiter gefunden</div>';
+      return;
+    }
+    grid.innerHTML = alleMitarbeiter.map(m => `
+      <div class="ma-btn" onclick="mitarbeiterWaehlen('${m.id}')">
+        <div class="ma-avatar">${m.name.charAt(0).toUpperCase()}</div>
+        <div class="ma-name">${m.name}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    initRetryCount++;
+    if (initRetryCount <= 3) {
+      setTimeout(init, 5000);
+    }
   }
-  grid.innerHTML = alleMitarbeiter.map(m => `
-    <div class="ma-btn" onclick="mitarbeiterWaehlen('${m.id}')">
-      <div class="ma-avatar">${m.name.charAt(0).toUpperCase()}</div>
-      <div class="ma-name">${m.name}</div>
-    </div>
-  `).join('');
 }
 
 // ── Mitarbeiter wählen ──
@@ -503,7 +512,9 @@ async function pinPruefen() {
 }
 
 // ── Aufträge ──
+let fertigRetryCount = 0;
 async function ladeAuftraege() {
+  try {
   aktuelleAuftraege = await sbFetch('auftraege?status=in.(aktiv,pausiert,geplant)&order=created_at.asc');
   const name = aktiverMitarbeiter.name;
   document.getElementById('auftraege-titel').textContent = `Hallo ${name.split(' ')[0]}!`;
@@ -580,6 +591,13 @@ async function ladeAuftraege() {
   }
 
   zeigScreen('screen-auftraege');
+  fertigRetryCount = 0;
+  } catch(e) {
+    fertigRetryCount++;
+    if (fertigRetryCount <= 3) {
+      setTimeout(ladeAuftraege, 5000);
+    }
+  }
 }
 
 // ── Starten ──
