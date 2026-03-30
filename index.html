@@ -485,6 +485,11 @@ function tickClock() {
 setInterval(tickClock, 1000);
 tickClock();
 
+// ── Seite komplett neu laden alle 10 Min (Cache umgehen) ──
+setInterval(() => {
+  window.location.replace(window.location.pathname + '?v=' + Date.now());
+}, 10 * 60 * 1000);
+
 // ── Countdown ──
 setInterval(() => {
   countdownVal--;
