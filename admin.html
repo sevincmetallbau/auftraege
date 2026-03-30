@@ -825,9 +825,14 @@ function getElapsedHours(a) {
 
 function getGeplantDringlichkeit(a) {
   if (!a.zieldatum) return 0;
-  const created = new Date(a.created_at);
   const ziel = new Date(a.zieldatum);
   const jetzt = new Date();
+  const restTageMs = ziel - jetzt;
+  const restTage = restTageMs / 86400000;
+  if (restTage <= 0) return 2;
+  if (restTage <= 5) return 1;
+  if (restTage <= 10) return 0.8;
+  const created = new Date(a.created_at);
   const gesamt = ziel - created;
   if (gesamt <= 0) return 1;
   return (jetzt - created) / gesamt;

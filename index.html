@@ -499,11 +499,22 @@ function getElapsedHours(a) {
 }
 
 function getGeplantDringlichkeit(a) {
-  // Für geplante Aufträge: Wie viel Vorlaufzeit ist schon verstrichen?
+  // Für geplante Aufträge: Wie dringend ist es?
   if (!a.zieldatum) return 0;
-  const created = new Date(a.created_at);
   const ziel = new Date(a.zieldatum);
   const jetzt = new Date();
+  const restTageMs = ziel - jetzt;
+  const restTage = restTageMs / 86400000;
+
+  // Zieldatum überschritten
+  if (restTage <= 0) return 2;
+  // Weniger als 5 Tage → dringend
+  if (restTage <= 5) return 1;
+  // Weniger als 10 Tage → wird knapp
+  if (restTage <= 10) return 0.8;
+
+  // Zusätzlich: prozentuale Vorlaufzeit prüfen
+  const created = new Date(a.created_at);
   const gesamt = ziel - created;
   if (gesamt <= 0) return 1;
   return (jetzt - created) / gesamt;
