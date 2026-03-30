@@ -515,6 +515,7 @@
   <div class="header-actions">
     <button class="btn-neu" onclick="modalOeffnen()">+ Neuer Auftrag</button>
     <button class="btn-back" onclick="qrToggle()">📱 QR-Code</button>
+    <button class="btn-back" onclick="hardRefresh()" title="Seite neu laden (ohne Cache)">🔄 Aktualisieren</button>
     <a href="index.html" class="btn-back">Mitarbeiter-Ansicht</a>
   </div>
 </header>
@@ -1278,6 +1279,10 @@ function confirmNein() {
 }
 
 // ─── QR CODE ───────────────────────────────────────────
+function hardRefresh() {
+  location.href = location.pathname + '?t=' + Date.now();
+}
+
 function qrToggle() {
   const box = document.getElementById('qr-box');
   const sichtbar = box.style.display === 'flex';
