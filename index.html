@@ -597,6 +597,7 @@ function render(daten) {
   tbody.innerHTML = daten.map(a => {
     const st = getStatusClass(a);
     const elapsed = getElapsedHours(a);
+    const istGeplant = (a.status === 'geplant' || !a.startzeit);
     let pct;
     if (istGeplant && a.zieldatum) {
       pct = Math.min(getGeplantDringlichkeit(a) * 100, 100);
@@ -605,8 +606,6 @@ function render(daten) {
     }
     const rest = a.geplante_stunden - elapsed;
     const ueberzogen = rest < 0 && a.startzeit && a.status !== 'geplant';
-
-    const istGeplant = (a.status === 'geplant' || !a.startzeit);
     let badgeText;
     if (istGeplant && st === 'rot') badgeText = 'Überfällig!';
     else if (istGeplant && st === 'orange') badgeText = 'Bald starten!';
