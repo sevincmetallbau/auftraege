@@ -499,7 +499,7 @@ function getElapsedHours(a) {
 }
 
 function getGeplantDringlichkeit(a) {
-  // Für geplante Aufträge: Wie dringend ist es?
+  // Für geplante Aufträge: Restzeit vs. Produktionszeit vergleichen
   if (!a.zieldatum) return 0;
   const ziel = new Date(a.zieldatum);
   const jetzt = new Date();
@@ -507,14 +507,18 @@ function getGeplantDringlichkeit(a) {
 
   // Zieldatum überschritten → rot
   if (restTage <= 0) return 2;
-  // Weniger als 7 Tage → orange (bald starten)
-  if (restTage <= 7) return 0.8;
 
-  // Prozentuale Vorlaufzeit prüfen (für längerfristige Aufträge)
-  const created = new Date(a.created_at);
-  const gesamt = ziel - created;
-  if (gesamt <= 0) return 1;
-  return (jetzt - created) / gesamt;
+  // Produktionstage aus geplante_stunden (Stunden / 8)
+  const produktionstage = a.geplante_stunden ? a.geplante_stunden / 8 : 0;
+
+  if (produktionstage > 0) {
+    // Nicht genug Zeit für die Produktion → rot
+    if (restTage < produktionstage) return 1;
+    // Wird knapp (weniger als 50% Puffer) → orange
+    if (restTage < produktionstage * 1.5) return 0.8;
+  }
+
+  return 0;
 }
 
 function getStatusClass(a) {
@@ -656,7 +660,7 @@ function render(daten) {
       ? `<div class="ma-badges" style="margin-top:6px">${a.mitarbeiter.map(m => `<span class="ma-badge">${m}</span>`).join('')}</div>`
       : '';
 
-    const kleinRow = (a.status !== 'aktiv' && !(istGeplant && (st === 'orange' || st === 'rot'))) ? ' row-klein' : '';
+    const kleinRow = (a.status !== 'aktiv') ? ' row-klein' : '';
     return `<tr class="${kleinRow}">
       <td class="stripe-cell"><div class="stripe ${st}"></div></td>
       <td>

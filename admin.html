@@ -646,7 +646,9 @@
           <input type="number" id="f-stunden" step="0.25" min="0.25" placeholder="z.B. 4 oder 2.5 (Stunden)">
         </div>
         <div id="planung-tage-wrap" style="display:none">
-          <input type="date" id="f-zieldatum">
+          <input type="date" id="f-zieldatum" style="margin-bottom:8px">
+          <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block">Geschätzte Produktionszeit (Arbeitstage)</label>
+          <input type="number" id="f-produktionstage" step="0.5" min="0.5" placeholder="z.B. 5 (Arbeitstage)">
         </div>
       </div>
       <div class="form-group full">
@@ -829,11 +831,12 @@ function getGeplantDringlichkeit(a) {
   const jetzt = new Date();
   const restTage = (ziel - jetzt) / 86400000;
   if (restTage <= 0) return 2;
-  if (restTage <= 7) return 0.8;
-  const created = new Date(a.created_at);
-  const gesamt = ziel - created;
-  if (gesamt <= 0) return 1;
-  return (jetzt - created) / gesamt;
+  const produktionstage = a.geplante_stunden ? a.geplante_stunden / 8 : 0;
+  if (produktionstage > 0) {
+    if (restTage < produktionstage) return 1;
+    if (restTage < produktionstage * 1.5) return 0.8;
+  }
+  return 0;
 }
 
 function getStatusClass(a) {
@@ -930,7 +933,7 @@ function render() {
         <td>${a.beschreibung || '–'}${a.status !== 'aktiv' ? ` ${statusLabel}` : ''}</td>
         <td>${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</td>
         <td class="zeit-col">${formatDt(a.startzeit)}${a.gestartet_von ? `<br><span style="font-size:0.75rem;color:#7dc3ff">▶ ${a.gestartet_von}</span>` : ''}</td>
-        <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] : formatDauer(a.geplante_stunden)}</td>
+        <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] + '<br><span style="font-size:0.72rem;color:#888">~' + Math.round(a.geplante_stunden / 8 * 2) / 2 + ' Arbeitstage</span>' : formatDauer(a.geplante_stunden)}</td>
         <td class="zeit-col">${a.startzeit ? formatDauer(elapsed) : '–'}</td>
         <td class="zeit-col">${restCell2}</td>
         <td>${fortschritt}</td>
@@ -1062,6 +1065,8 @@ function modalBearbeiten(id) {
   document.getElementById('r-stunden').checked = !istTage;
   document.getElementById('r-tage').checked = istTage;
   document.getElementById('f-stunden').value = a.geplante_stunden || '';
+  // Produktionstage aus geplante_stunden berechnen (Stunden / 8)
+  document.getElementById('f-produktionstage').value = a.geplante_stunden ? Math.round((a.geplante_stunden / 8) * 2) / 2 : '';
   if (a.zieldatum) {
     const zd = new Date(a.zieldatum);
     document.getElementById('f-zieldatum').value = zd.toISOString().slice(0,10);
@@ -1091,12 +1096,10 @@ async function speichern() {
   if (istTage) {
     const zdRaw = document.getElementById('f-zieldatum').value;
     if (!zdRaw) { toast('Bitte ein Zieldatum eingeben!', true); return; }
-    // Ende des gewählten Tages (23:59)
     zieldatum = new Date(zdRaw + 'T23:59:59').toISOString();
-    // Stunden aus Startzeit bis Zieldatum berechnen (für Fortschrittsbalken)
-    const von = startzeit ? new Date(startzeit) : new Date();
-    const bis = new Date(zieldatum);
-    geplante_stunden = Math.max(0.25, (bis - von) / 3600000);
+    const produktionstage = parseFloat(document.getElementById('f-produktionstage').value);
+    if (!produktionstage || produktionstage <= 0) { toast('Bitte geschätzte Produktionstage eingeben!', true); return; }
+    geplante_stunden = produktionstage * 8;
   } else {
     geplante_stunden = parseFloat(document.getElementById('f-stunden').value);
     if (!geplante_stunden || geplante_stunden <= 0) { toast('Bitte geplante Stunden eingeben!', true); return; }
