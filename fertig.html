@@ -774,14 +774,16 @@ function getStatusClass(a) {
 }
 
 function formatDauer(h) {
-  if (h <= 0) h = 0;
-  const tage = Math.floor(h / 24);
-  const stunden = Math.floor(h % 24);
-  const minuten = Math.round((h % 1) * 60);
+  if (h < 0) h = Math.abs(h);
+  const totalMin = Math.round(h * 60);
+  const d = Math.floor(totalMin / (8 * 60));
+  const rest = totalMin - d * 8 * 60;
+  const hh = Math.floor(rest / 60);
+  const mm = rest % 60;
   const parts = [];
-  if (tage > 0) parts.push(`${tage} T`);
-  if (stunden > 0) parts.push(`${stunden} Std`);
-  if (minuten > 0 || parts.length === 0) parts.push(`${minuten} Min`);
+  if (d > 0) parts.push(`${d} T`);
+  if (hh > 0) parts.push(`${hh} Std`);
+  if (mm > 0 || parts.length === 0) parts.push(`${mm} Min`);
   return parts.join(' ');
 }
 
