@@ -498,24 +498,40 @@ function getElapsedHours(a) {
   return Math.max(0, (ref - start) / 3600000 - (a.pause_gesamt || 0));
 }
 
+function werktageZwischen(von, bis) {
+  let count = 0;
+  const d = new Date(von);
+  d.setHours(0,0,0,0);
+  const end = new Date(bis);
+  end.setHours(0,0,0,0);
+  while (d < end) {
+    const tag = d.getDay();
+    if (tag !== 0 && tag !== 6) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
 function getGeplantDringlichkeit(a) {
-  // Für geplante Aufträge: Restzeit vs. Produktionszeit vergleichen
+  // Für geplante Aufträge: Restwerktage vs. Produktionstage vergleichen
   if (!a.zieldatum) return 0;
   const ziel = new Date(a.zieldatum);
   const jetzt = new Date();
-  const restTage = (ziel - jetzt) / 86400000;
 
   // Zieldatum überschritten → rot
-  if (restTage <= 0) return 2;
+  if (jetzt > ziel) return 2;
 
-  // Produktionstage aus geplante_stunden (Stunden / 8)
+  // Restwerktage bis Zieldatum zählen (Mo-Fr)
+  const restWerktage = werktageZwischen(jetzt, ziel);
+
+  // Produktionstage aus geplante_stunden (Stunden / 8 = Werktage)
   const produktionstage = a.geplante_stunden ? a.geplante_stunden / 8 : 0;
 
   if (produktionstage > 0) {
-    // Nicht genug Zeit für die Produktion → rot
-    if (restTage < produktionstage) return 1;
+    // Nicht genug Werktage für die Produktion → rot
+    if (restWerktage < produktionstage) return 1;
     // Wird knapp (weniger als 50% Puffer) → orange
-    if (restTage < produktionstage * 1.5) return 0.8;
+    if (restWerktage < produktionstage * 1.5) return 0.8;
   }
 
   return 0;
@@ -638,14 +654,13 @@ function render(daten) {
     // Restzeit (groß)
     let restZelle;
     if (istGeplant && a.zieldatum) {
-      const tageRest = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
-      if (tageRest < 0) {
-        restZelle = `<div class="zeit-wert-gross zeit-ueberzogen blink">${Math.abs(tageRest)} T überfällig</div>`;
-      } else if (tageRest === 0) {
-        restZelle = `<div class="zeit-wert-gross zeit-ueberzogen blink">Heute fällig!</div>`;
+      const restWT = werktageZwischen(new Date(), new Date(a.zieldatum));
+      const kalenderRest = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
+      if (kalenderRest <= 0) {
+        restZelle = `<div class="zeit-wert-gross zeit-ueberzogen blink">Überfällig!</div>`;
       } else {
         const restFarbe = st === 'orange' ? 'color:#fb923c' : st === 'rot' ? 'color:#f87171' : 'color:#93c5fd';
-        restZelle = `<div class="zeit-wert-gross" style="${restFarbe}">${tageRest} T bis Termin</div>`;
+        restZelle = `<div class="zeit-wert-gross" style="${restFarbe}">${restWT} Werktage</div>`;
       }
     } else if (!a.startzeit || a.status === 'geplant') {
       restZelle = `<div class="zeit-wert-gross" style="color:#4b5563">–</div>`;

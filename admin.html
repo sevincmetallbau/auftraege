@@ -831,16 +831,30 @@ function getElapsedHours(a) {
   return Math.max(0, (ref - start) / 3600000 - (a.pause_gesamt || 0));
 }
 
+function werktageZwischen(von, bis) {
+  let count = 0;
+  const d = new Date(von);
+  d.setHours(0,0,0,0);
+  const end = new Date(bis);
+  end.setHours(0,0,0,0);
+  while (d < end) {
+    const tag = d.getDay();
+    if (tag !== 0 && tag !== 6) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
 function getGeplantDringlichkeit(a) {
   if (!a.zieldatum) return 0;
   const ziel = new Date(a.zieldatum);
   const jetzt = new Date();
-  const restTage = (ziel - jetzt) / 86400000;
-  if (restTage <= 0) return 2;
+  if (jetzt > ziel) return 2;
+  const restWerktage = werktageZwischen(jetzt, ziel);
   const produktionstage = a.geplante_stunden ? a.geplante_stunden / 8 : 0;
   if (produktionstage > 0) {
-    if (restTage < produktionstage) return 1;
-    if (restTage < produktionstage * 1.5) return 0.8;
+    if (restWerktage < produktionstage) return 1;
+    if (restWerktage < produktionstage * 1.5) return 0.8;
   }
   return 0;
 }
@@ -926,10 +940,10 @@ function render() {
       // Restzeit bis Zieldatum für geplante Aufträge
       let restCell2 = restCell;
       if (istGeplant && a.zieldatum) {
-        const tageRest = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
-        if (tageRest < 0) restCell2 = `<span class="zeit-ueberzogen" style="font-weight:700">${Math.abs(tageRest)} T überfällig</span>`;
-        else if (tageRest === 0) restCell2 = `<span class="zeit-ueberzogen" style="font-weight:700">Heute!</span>`;
-        else restCell2 = `<span style="color:${st==='orange'?'#fb923c':st==='rot'?'#f87171':'#93c5fd'}">${tageRest} Tage</span>`;
+        const kalenderRest = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
+        const restWT = werktageZwischen(new Date(), new Date(a.zieldatum));
+        if (kalenderRest <= 0) restCell2 = `<span class="zeit-ueberzogen" style="font-weight:700">Überfällig!</span>`;
+        else restCell2 = `<span style="color:${st==='orange'?'#fb923c':st==='rot'?'#f87171':'#93c5fd'}">${restWT} Werktage</span>`;
       }
 
       return `<tr>
