@@ -827,11 +827,9 @@ function getGeplantDringlichkeit(a) {
   if (!a.zieldatum) return 0;
   const ziel = new Date(a.zieldatum);
   const jetzt = new Date();
-  const restTageMs = ziel - jetzt;
-  const restTage = restTageMs / 86400000;
+  const restTage = (ziel - jetzt) / 86400000;
   if (restTage <= 0) return 2;
-  if (restTage <= 5) return 1;
-  if (restTage <= 10) return 0.8;
+  if (restTage <= 7) return 0.8;
   const created = new Date(a.created_at);
   const gesamt = ziel - created;
   if (gesamt <= 0) return 1;
@@ -911,8 +909,8 @@ function render() {
 
       const istGeplant = (a.status === 'geplant' || !a.startzeit);
       let statusLabel = '';
-      if (istGeplant && st === 'rot') statusLabel = '<span style="font-size:0.75rem;color:#f87171;font-weight:700">⚠️ Überfällig!</span>';
-      else if (istGeplant && st === 'orange') statusLabel = '<span style="font-size:0.75rem;color:#fb923c;font-weight:700">⏰ Bald starten!</span>';
+      if (istGeplant && st === 'rot' && a.zieldatum && Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000) <= 0) statusLabel = '<span style="font-size:0.75rem;color:#f87171;font-weight:700">⚠️ Überfällig!</span>';
+      else if (istGeplant && (st === 'rot' || st === 'orange')) statusLabel = '<span style="font-size:0.75rem;color:#fb923c;font-weight:700">⏰ Bald starten!</span>';
       else if (a.status === 'geplant') statusLabel = '<span style="font-size:0.75rem;color:#9b59b6">Geplant</span>';
       else if (a.status === 'pausiert') statusLabel = '<span style="font-size:0.75rem;color:#9b59b6">Pausiert</span>';
 

@@ -503,17 +503,14 @@ function getGeplantDringlichkeit(a) {
   if (!a.zieldatum) return 0;
   const ziel = new Date(a.zieldatum);
   const jetzt = new Date();
-  const restTageMs = ziel - jetzt;
-  const restTage = restTageMs / 86400000;
+  const restTage = (ziel - jetzt) / 86400000;
 
-  // Zieldatum überschritten
+  // Zieldatum überschritten → rot
   if (restTage <= 0) return 2;
-  // Weniger als 5 Tage → dringend
-  if (restTage <= 5) return 1;
-  // Weniger als 10 Tage → wird knapp
-  if (restTage <= 10) return 0.8;
+  // Weniger als 7 Tage → orange (bald starten)
+  if (restTage <= 7) return 0.8;
 
-  // Zusätzlich: prozentuale Vorlaufzeit prüfen
+  // Prozentuale Vorlaufzeit prüfen (für längerfristige Aufträge)
   const created = new Date(a.created_at);
   const gesamt = ziel - created;
   if (gesamt <= 0) return 1;
@@ -618,8 +615,10 @@ function render(daten) {
     const rest = a.geplante_stunden - elapsed;
     const ueberzogen = rest < 0 && a.startzeit && a.status !== 'geplant';
     let badgeText;
-    if (istGeplant && st === 'rot') badgeText = 'Überfällig!';
-    else if (istGeplant && st === 'orange') badgeText = 'Bald starten!';
+    if (istGeplant && st === 'rot') {
+      const tageRest2 = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
+      badgeText = tageRest2 <= 0 ? 'Überfällig!' : 'Dringend starten!';
+    } else if (istGeplant && st === 'orange') badgeText = 'Bald starten!';
     else badgeText = { gruen:'In Bearbeitung', orange:'Bald fällig', rot:'Überzogen', geplant:'Geplant', pausiert:'Pausiert' }[st] || '';
 
     // Geplant-Spalte
@@ -666,7 +665,7 @@ function render(daten) {
           <div class="kunde-name">${a.kunde || '–'}</div>
           ${a.beschreibung ? `<div class="beschreibung">${a.beschreibung}</div>` : ''}
           ${mitarbeiterBadges}
-          ${istGeplant && st === 'rot' ? `<div class="geplant-info" style="color:#f87171;font-weight:700">⚠️ Überfällig – sofort starten!</div>` : istGeplant && st === 'orange' ? `<div class="geplant-info" style="color:#fb923c;font-weight:700">⏰ Zeit wird knapp – bald starten!</div>` : istGeplant ? `<div class="geplant-info">🕐 Noch nicht gestartet</div>` : ''}
+          ${istGeplant && st === 'rot' && a.zieldatum && Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000) <= 0 ? `<div class="geplant-info" style="color:#f87171;font-weight:700">⚠️ Termin überschritten – sofort starten!</div>` : istGeplant && (st === 'orange' || st === 'rot') ? `<div class="geplant-info" style="color:#fb923c;font-weight:700">⏰ Zeit wird knapp – bald starten!</div>` : istGeplant ? `<div class="geplant-info">🕐 Noch nicht gestartet</div>` : ''}
           ${a.gestartet_von ? `<div style="font-size:0.78rem;color:#6b7280;margin-top:2px">▶ ${a.gestartet_von}</div>` : ''}
           ${a.notiz ? `<div class="notiz">📝 ${a.notiz}</div>` : ''}
         </div>
