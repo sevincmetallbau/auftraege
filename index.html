@@ -583,18 +583,23 @@ async function ladeAuftraege() {
     );
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const daten = (await res.json()).sort((a, b) => {
-      // Dringliche geplante Aufträge nach oben (zwischen aktiv und normal geplant)
       function sortPrio(x) {
         if (x.status === 'aktiv') return 0;
         if ((x.status === 'geplant' || !x.startzeit) && x.zieldatum) {
           const d = getGeplantDringlichkeit(x);
-          if (d >= 1) return 0.5;   // Überfällig → fast wie aktiv
-          if (d >= 0.75) return 1;   // Bald starten → vor pausiert
+          if (d >= 1) return 1;    // Dringend rot
+          if (d >= 0.75) return 2;  // Dringend orange
         }
-        if (x.status === 'pausiert') return 2;
-        return 3; // normal geplant
+        if (x.status === 'pausiert') return 3;
+        if ((x.status === 'geplant' || !x.startzeit) && x.zieldatum) return 4; // Geplant mit Termin
+        return 5; // Geplant ohne Termin
       }
-      return sortPrio(a) - sortPrio(b);
+      const prio = sortPrio(a) - sortPrio(b);
+      if (prio !== 0) return prio;
+      // Bei gleicher Priorität: nächster Termin zuerst
+      const zA = a.zieldatum ? new Date(a.zieldatum).getTime() : Infinity;
+      const zB = b.zieldatum ? new Date(b.zieldatum).getTime() : Infinity;
+      return zA - zB;
     });
     retryCount = 0;
     letzterErfolg = true;
