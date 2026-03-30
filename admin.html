@@ -872,7 +872,8 @@ function render() {
         aktionen = `<button class="btn-action btn-start" onclick="starten('${a.id}')">▶ Starten</button>`;
       } else if (a.status === 'aktiv') {
         aktionen = `<button class="btn-action btn-pause" onclick="pausieren('${a.id}')">⏸ Pause</button>
-                    <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>`;
+                    <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>
+                    <button class="btn-action" style="background:rgba(37,99,235,0.2);color:#93c5fd;border:1px solid #2563eb;font-size:0.7rem" onclick="zuruecksetzen('${a.id}')">↩ Nicht begonnen</button>`;
       } else if (a.status === 'pausiert') {
         aktionen = `<button class="btn-action btn-resume" onclick="fortsetzen('${a.id}')">▶ Weiter</button>
                     <button class="btn-action btn-done" onclick="alsErledigt('${a.id}')">✅ Erledigt</button>
