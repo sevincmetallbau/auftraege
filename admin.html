@@ -823,8 +823,23 @@ function getElapsedHours(a) {
   return Math.max(0, (ref - start) / 3600000 - (a.pause_gesamt || 0));
 }
 
+function getGeplantDringlichkeit(a) {
+  if (!a.zieldatum) return 0;
+  const created = new Date(a.created_at);
+  const ziel = new Date(a.zieldatum);
+  const jetzt = new Date();
+  const gesamt = ziel - created;
+  if (gesamt <= 0) return 1;
+  return (jetzt - created) / gesamt;
+}
+
 function getStatusClass(a) {
-  if (a.status === 'geplant' || !a.startzeit) return 'geplant';
+  if (a.status === 'geplant' || !a.startzeit) {
+    const dring = getGeplantDringlichkeit(a);
+    if (dring >= 1) return 'rot';
+    if (dring >= 0.75) return 'orange';
+    return 'geplant';
+  }
   if (a.status === 'pausiert') return 'pausiert';
   const pct = getElapsedHours(a) / a.geplante_stunden;
   if (pct >= 1) return 'rot';
@@ -889,18 +904,32 @@ function render() {
                     <button class="btn-action" style="background:rgba(37,99,235,0.2);color:#93c5fd;border:1px solid #2563eb;font-size:0.7rem" onclick="zuruecksetzen('${a.id}')">↩ Nicht begonnen</button>`;
       }
 
-      const statusLabels = { geplant:'Geplant', aktiv:'', pausiert:'Pausiert' };
+      const istGeplant = (a.status === 'geplant' || !a.startzeit);
+      let statusLabel = '';
+      if (istGeplant && st === 'rot') statusLabel = '<span style="font-size:0.75rem;color:#f87171;font-weight:700">⚠️ Überfällig!</span>';
+      else if (istGeplant && st === 'orange') statusLabel = '<span style="font-size:0.75rem;color:#fb923c;font-weight:700">⏰ Bald starten!</span>';
+      else if (a.status === 'geplant') statusLabel = '<span style="font-size:0.75rem;color:#9b59b6">Geplant</span>';
+      else if (a.status === 'pausiert') statusLabel = '<span style="font-size:0.75rem;color:#9b59b6">Pausiert</span>';
+
+      // Restzeit bis Zieldatum für geplante Aufträge
+      let restCell2 = restCell;
+      if (istGeplant && a.zieldatum) {
+        const tageRest = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
+        if (tageRest < 0) restCell2 = `<span class="zeit-ueberzogen" style="font-weight:700">${Math.abs(tageRest)} T überfällig</span>`;
+        else if (tageRest === 0) restCell2 = `<span class="zeit-ueberzogen" style="font-weight:700">Heute!</span>`;
+        else restCell2 = `<span style="color:${st==='orange'?'#fb923c':st==='rot'?'#f87171':'#93c5fd'}">${tageRest} Tage</span>`;
+      }
 
       return `<tr>
         <td class="status-stripe-cell"><div class="stripe ${st}" style="height:42px"></div></td>
         <td class="auftrag-nr-cell">${a.auftragsnummer || '–'}</td>
         <td>${a.kunde || '–'}</td>
-        <td>${a.beschreibung || '–'}${a.status !== 'aktiv' ? ` <span style="font-size:0.75rem;color:#9b59b6">${statusLabels[a.status]||''}</span>` : ''}</td>
+        <td>${a.beschreibung || '–'}${a.status !== 'aktiv' ? ` ${statusLabel}` : ''}</td>
         <td>${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</td>
         <td class="zeit-col">${formatDt(a.startzeit)}${a.gestartet_von ? `<br><span style="font-size:0.75rem;color:#7dc3ff">▶ ${a.gestartet_von}</span>` : ''}</td>
         <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] : formatDauer(a.geplante_stunden)}</td>
         <td class="zeit-col">${a.startzeit ? formatDauer(elapsed) : '–'}</td>
-        <td class="zeit-col">${restCell}</td>
+        <td class="zeit-col">${restCell2}</td>
         <td>${fortschritt}</td>
         <td>
           <div class="actions-cell">

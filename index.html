@@ -437,8 +437,8 @@
 <div class="legende-bar">
   <div class="legende-item"><div class="legende-dot" style="background:#2563eb"></div>Geplant – noch nicht gestartet</div>
   <div class="legende-item"><div class="legende-dot" style="background:#16a34a"></div>Im Zeitplan</div>
-  <div class="legende-item"><div class="legende-dot" style="background:#ea580c"></div>Fast abgelaufen (≥75%)</div>
-  <div class="legende-item"><div class="legende-dot" style="background:#dc2626"></div>Zeit überschritten</div>
+  <div class="legende-item"><div class="legende-dot" style="background:#ea580c"></div>Bald fällig / Bald starten</div>
+  <div class="legende-item"><div class="legende-dot" style="background:#dc2626"></div>Überzogen / Überfällig</div>
   <div class="legende-item"><div class="legende-dot" style="background:#7c3aed"></div>Pausiert</div>
 </div>
 
@@ -498,8 +498,25 @@ function getElapsedHours(a) {
   return Math.max(0, (ref - start) / 3600000 - (a.pause_gesamt || 0));
 }
 
+function getGeplantDringlichkeit(a) {
+  // Für geplante Aufträge: Wie viel Vorlaufzeit ist schon verstrichen?
+  if (!a.zieldatum) return 0;
+  const created = new Date(a.created_at);
+  const ziel = new Date(a.zieldatum);
+  const jetzt = new Date();
+  const gesamt = ziel - created;
+  if (gesamt <= 0) return 1;
+  return (jetzt - created) / gesamt;
+}
+
 function getStatusClass(a) {
-  if (a.status === 'geplant' || !a.startzeit) return 'geplant';
+  if (a.status === 'geplant' || !a.startzeit) {
+    // Dringlichkeits-Check für geplante Aufträge
+    const dring = getGeplantDringlichkeit(a);
+    if (dring >= 1) return 'rot';
+    if (dring >= 0.75) return 'orange';
+    return 'geplant';
+  }
   if (a.status === 'pausiert') return 'pausiert';
   const pct = getElapsedHours(a) / a.geplante_stunden;
   if (pct >= 1) return 'rot';
@@ -537,10 +554,20 @@ async function ladeAuftraege() {
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     );
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const reihenfolge = { aktiv: 0, pausiert: 1, geplant: 2 };
-    const daten = (await res.json()).sort((a, b) =>
-      (reihenfolge[a.status] ?? 9) - (reihenfolge[b.status] ?? 9)
-    );
+    const daten = (await res.json()).sort((a, b) => {
+      // Dringliche geplante Aufträge nach oben (zwischen aktiv und normal geplant)
+      function sortPrio(x) {
+        if (x.status === 'aktiv') return 0;
+        if ((x.status === 'geplant' || !x.startzeit) && x.zieldatum) {
+          const d = getGeplantDringlichkeit(x);
+          if (d >= 1) return 0.5;   // Überfällig → fast wie aktiv
+          if (d >= 0.75) return 1;   // Bald starten → vor pausiert
+        }
+        if (x.status === 'pausiert') return 2;
+        return 3; // normal geplant
+      }
+      return sortPrio(a) - sortPrio(b);
+    });
     retryCount = 0;
     letzterErfolg = true;
     render(daten);
@@ -570,11 +597,20 @@ function render(daten) {
   tbody.innerHTML = daten.map(a => {
     const st = getStatusClass(a);
     const elapsed = getElapsedHours(a);
-    const pct = a.startzeit ? Math.min((elapsed / a.geplante_stunden) * 100, 100) : 0;
+    let pct;
+    if (istGeplant && a.zieldatum) {
+      pct = Math.min(getGeplantDringlichkeit(a) * 100, 100);
+    } else {
+      pct = a.startzeit ? Math.min((elapsed / a.geplante_stunden) * 100, 100) : 0;
+    }
     const rest = a.geplante_stunden - elapsed;
     const ueberzogen = rest < 0 && a.startzeit && a.status !== 'geplant';
 
-    const badgeText = { gruen:'In Bearbeitung', orange:'Bald fällig', rot:'Überzogen', geplant:'Geplant', pausiert:'Pausiert' }[st] || '';
+    const istGeplant = (a.status === 'geplant' || !a.startzeit);
+    let badgeText;
+    if (istGeplant && st === 'rot') badgeText = 'Überfällig!';
+    else if (istGeplant && st === 'orange') badgeText = 'Bald starten!';
+    else badgeText = { gruen:'In Bearbeitung', orange:'Bald fällig', rot:'Überzogen', geplant:'Geplant', pausiert:'Pausiert' }[st] || '';
 
     // Geplant-Spalte
     const geplantZelle = a.planung_typ === 'tage'
@@ -588,7 +624,17 @@ function render(daten) {
 
     // Restzeit (groß)
     let restZelle;
-    if (!a.startzeit || a.status === 'geplant') {
+    if (istGeplant && a.zieldatum) {
+      const tageRest = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
+      if (tageRest < 0) {
+        restZelle = `<div class="zeit-wert-gross zeit-ueberzogen blink">${Math.abs(tageRest)} T überfällig</div>`;
+      } else if (tageRest === 0) {
+        restZelle = `<div class="zeit-wert-gross zeit-ueberzogen blink">Heute fällig!</div>`;
+      } else {
+        const restFarbe = st === 'orange' ? 'color:#fb923c' : st === 'rot' ? 'color:#f87171' : 'color:#93c5fd';
+        restZelle = `<div class="zeit-wert-gross" style="${restFarbe}">${tageRest} T bis Termin</div>`;
+      }
+    } else if (!a.startzeit || a.status === 'geplant') {
       restZelle = `<div class="zeit-wert-gross" style="color:#4b5563">–</div>`;
     } else if (ueberzogen) {
       restZelle = `<div class="zeit-wert-gross zeit-ueberzogen blink">+${formatDauer(Math.abs(rest))}</div>`;
@@ -601,7 +647,7 @@ function render(daten) {
       ? `<div class="ma-badges" style="margin-top:6px">${a.mitarbeiter.map(m => `<span class="ma-badge">${m}</span>`).join('')}</div>`
       : '';
 
-    const kleinRow = (a.status !== 'aktiv') ? ' row-klein' : '';
+    const kleinRow = (a.status !== 'aktiv' && !(istGeplant && (st === 'orange' || st === 'rot'))) ? ' row-klein' : '';
     return `<tr class="${kleinRow}">
       <td class="stripe-cell"><div class="stripe ${st}"></div></td>
       <td>
@@ -610,7 +656,7 @@ function render(daten) {
           <div class="kunde-name">${a.kunde || '–'}</div>
           ${a.beschreibung ? `<div class="beschreibung">${a.beschreibung}</div>` : ''}
           ${mitarbeiterBadges}
-          ${a.status === 'geplant' ? `<div class="geplant-info">🕐 Noch nicht gestartet</div>` : ''}
+          ${istGeplant && st === 'rot' ? `<div class="geplant-info" style="color:#f87171;font-weight:700">⚠️ Überfällig – sofort starten!</div>` : istGeplant && st === 'orange' ? `<div class="geplant-info" style="color:#fb923c;font-weight:700">⏰ Zeit wird knapp – bald starten!</div>` : istGeplant ? `<div class="geplant-info">🕐 Noch nicht gestartet</div>` : ''}
           ${a.gestartet_von ? `<div style="font-size:0.78rem;color:#6b7280;margin-top:2px">▶ ${a.gestartet_von}</div>` : ''}
           ${a.notiz ? `<div class="notiz">📝 ${a.notiz}</div>` : ''}
         </div>
@@ -627,7 +673,7 @@ function render(daten) {
       <td>
         <div class="td-inner">
           <div class="progress-wrap">
-            <div class="pct-text">${a.startzeit ? Math.round(pct) + '%' : '–'}</div>
+            <div class="pct-text">${(a.startzeit || (istGeplant && a.zieldatum)) ? Math.round(pct) + '%' : '–'}</div>
             <div class="progress-bg">
               <div class="progress-fill fill-${st}" style="width:${pct}%"></div>
             </div>
