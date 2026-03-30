@@ -468,6 +468,8 @@ const SUPABASE_URL = 'https://febvatualuantefwlqyq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlYnZhdHVhbHVhbnRlZndscXlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDcyMzUsImV4cCI6MjA5MDEyMzIzNX0.kK8cfkl3FXRxeDi1vZUNaRFf4-eIsi0TrFAvXDvUujc';
 
 let countdownVal = 30;
+let letzterErfolg = true;
+let retryCount = 0;
 
 // ── Uhr ──
 function tickClock() {
@@ -534,14 +536,25 @@ async function ladeAuftraege() {
       `${SUPABASE_URL}/rest/v1/auftraege?status=in.(aktiv,pausiert,geplant)&order=created_at.asc`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     );
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const reihenfolge = { aktiv: 0, pausiert: 1, geplant: 2 };
     const daten = (await res.json()).sort((a, b) =>
       (reihenfolge[a.status] ?? 9) - (reihenfolge[b.status] ?? 9)
     );
+    retryCount = 0;
+    letzterErfolg = true;
     render(daten);
   } catch(e) {
-    document.getElementById('auftrag-tbody').innerHTML =
-      '<tr><td colspan="7"><div class="leer"><div class="leer-icon">⚠️</div><div class="leer-text">Verbindungsfehler – Seite neu laden</div></div></td></tr>';
+    // Bei Fehler: alte Daten stehen lassen, leise im Hintergrund erneut versuchen
+    retryCount++;
+    if (retryCount <= 3) {
+      setTimeout(ladeAuftraege, 5000);
+    }
+    // Fehlermeldung nur zeigen wenn noch NIE Daten geladen wurden
+    if (!letzterErfolg) {
+      document.getElementById('auftrag-tbody').innerHTML =
+        '<tr><td colspan="7"><div class="leer"><div class="leer-icon">⚠️</div><div class="leer-text">Verbindungsfehler – wird automatisch erneut versucht</div></div></td></tr>';
+    }
   }
 }
 
