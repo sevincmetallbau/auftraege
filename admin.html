@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Admin – Auftragsübersicht</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1290,7 +1293,11 @@ function confirmNein() {
 
 // ─── QR CODE ───────────────────────────────────────────
 function hardRefresh() {
-  location.href = location.pathname + '?t=' + Date.now();
+  // Cache komplett umgehen
+  if ('caches' in window) {
+    caches.keys().then(names => names.forEach(n => caches.delete(n)));
+  }
+  window.location.replace(window.location.pathname + '?v=' + Date.now());
 }
 
 function qrToggle() {
