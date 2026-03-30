@@ -957,9 +957,9 @@ function render() {
       else if (a.status === 'geplant') statusLabel = '<span style="font-size:0.75rem;color:#9b59b6">Geplant</span>';
       else if (a.status === 'pausiert') statusLabel = '<span style="font-size:0.75rem;color:#9b59b6">Pausiert</span>';
 
-      // Restzeit bis Zieldatum für geplante Aufträge
+      // Restzeit bis Zieldatum (für alle Aufträge mit Zieldatum)
       let restCell2 = restCell;
-      if (istGeplant && a.zieldatum) {
+      if (a.zieldatum) {
         const kalenderRest = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
         const restWT = werktageZwischen(new Date(), new Date(a.zieldatum));
         if (kalenderRest <= 0) restCell2 = `<span class="zeit-ueberzogen" style="font-weight:700">Überfällig!</span>`;
