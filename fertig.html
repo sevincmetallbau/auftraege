@@ -538,9 +538,19 @@ async function ladeAuftraege() {
       let zeitInfo, aktionBtn, kleinStyle = '';
 
       if (istGeplant) {
-        zeitInfo = `<div style="color:#93c5fd;font-size:0.88rem;margin-bottom:10px">🕐 Noch nicht gestartet</div>`;
-        aktionBtn = `<button class="btn-fertig" style="background:#2563eb" onclick="startenAnfragen('${a.id}')">▶ Auftrag starten</button>`;
-        kleinStyle = 'opacity:0.75';
+        const dringend = (st === 'orange' || st === 'rot');
+        if (st === 'rot' && a.zieldatum) {
+          const kr = Math.ceil((new Date(a.zieldatum) - new Date()) / 86400000);
+          zeitInfo = kr <= 0
+            ? `<div style="color:#f87171;font-size:0.88rem;margin-bottom:10px;font-weight:700">⚠️ Termin überschritten!</div>`
+            : `<div style="color:#f87171;font-size:0.88rem;margin-bottom:10px;font-weight:700">⚠️ Dringend – ${werktageZwischen(new Date(), new Date(a.zieldatum))} Werktage übrig!</div>`;
+        } else if (st === 'orange' && a.zieldatum) {
+          zeitInfo = `<div style="color:#fb923c;font-size:0.88rem;margin-bottom:10px;font-weight:700">⏰ Bald starten – ${werktageZwischen(new Date(), new Date(a.zieldatum))} Werktage übrig!</div>`;
+        } else {
+          zeitInfo = `<div style="color:#93c5fd;font-size:0.88rem;margin-bottom:10px">🕐 Noch nicht gestartet</div>`;
+        }
+        aktionBtn = `<button class="btn-fertig" style="background:${dringend ? '#ea580c' : '#2563eb'}" onclick="startenAnfragen('${a.id}')">▶ Auftrag starten</button>`;
+        kleinStyle = dringend ? '' : 'opacity:0.75';
       } else if (a.status === 'pausiert') {
         zeitInfo = `
           <div class="card-zeiten">
@@ -727,7 +737,35 @@ function getElapsedHours(a) {
   return Math.max(0, (ref - new Date(a.startzeit)) / 3600000 - (a.pause_gesamt || 0));
 }
 
+function werktageZwischen(von, bis) {
+  let count = 0;
+  const d = new Date(von);
+  d.setHours(0,0,0,0);
+  const end = new Date(bis);
+  end.setHours(0,0,0,0);
+  while (d < end) {
+    const tag = d.getDay();
+    if (tag !== 0 && tag !== 6) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
 function getStatusClass(a) {
+  if (a.status === 'geplant' || !a.startzeit) {
+    if (a.zieldatum) {
+      const jetzt = new Date();
+      const ziel = new Date(a.zieldatum);
+      if (jetzt > ziel) return 'rot';
+      const restWT = werktageZwischen(jetzt, ziel);
+      const produktionstage = a.geplante_stunden ? a.geplante_stunden / 8 : 0;
+      if (produktionstage > 0) {
+        if (restWT < produktionstage) return 'rot';
+        if (restWT < produktionstage * 1.5) return 'orange';
+      }
+    }
+    return 'geplant';
+  }
   if (a.status === 'pausiert') return 'pausiert';
   const pct = getElapsedHours(a) / a.geplante_stunden;
   if (pct >= 1) return 'rot';
