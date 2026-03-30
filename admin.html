@@ -647,8 +647,14 @@
         </div>
         <div id="planung-tage-wrap" style="display:none">
           <input type="date" id="f-zieldatum" style="margin-bottom:8px">
-          <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block">Geschätzte Produktionszeit (Arbeitstage)</label>
-          <input type="number" id="f-produktionstage" step="0.5" min="0.5" placeholder="z.B. 5 (Arbeitstage)">
+          <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block">Geschätzte Produktionszeit</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" id="f-produktionszeit" step="0.5" min="0.5" placeholder="z.B. 5" style="flex:1">
+            <select id="f-produktionseinheit" style="background:#0f1e3d;border:2px solid #0f3460;border-radius:8px;padding:10px 12px;color:#fff;font-size:0.9rem">
+              <option value="tage">Tage</option>
+              <option value="stunden">Stunden</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="form-group full">
@@ -933,7 +939,7 @@ function render() {
         <td>${a.beschreibung || '–'}${a.status !== 'aktiv' ? ` ${statusLabel}` : ''}</td>
         <td>${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</td>
         <td class="zeit-col">${formatDt(a.startzeit)}${a.gestartet_von ? `<br><span style="font-size:0.75rem;color:#7dc3ff">▶ ${a.gestartet_von}</span>` : ''}</td>
-        <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] + '<br><span style="font-size:0.72rem;color:#888">~' + Math.round(a.geplante_stunden / 8 * 2) / 2 + ' Arbeitstage</span>' : formatDauer(a.geplante_stunden)}</td>
+        <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] + '<br><span style="font-size:0.72rem;color:#888">~' + (a.geplante_stunden < 8 ? a.geplante_stunden + 'h Arbeit' : Math.round(a.geplante_stunden / 8 * 2) / 2 + ' Arbeitstage') + '</span>' : formatDauer(a.geplante_stunden)}</td>
         <td class="zeit-col">${a.startzeit ? formatDauer(elapsed) : '–'}</td>
         <td class="zeit-col">${restCell2}</td>
         <td>${fortschritt}</td>
@@ -1065,8 +1071,14 @@ function modalBearbeiten(id) {
   document.getElementById('r-stunden').checked = !istTage;
   document.getElementById('r-tage').checked = istTage;
   document.getElementById('f-stunden').value = a.geplante_stunden || '';
-  // Produktionstage aus geplante_stunden berechnen (Stunden / 8)
-  document.getElementById('f-produktionstage').value = a.geplante_stunden ? Math.round((a.geplante_stunden / 8) * 2) / 2 : '';
+  // Produktionszeit aus geplante_stunden: wenn < 8h → Stunden, sonst Tage
+  if (a.geplante_stunden && a.geplante_stunden < 8) {
+    document.getElementById('f-produktionszeit').value = a.geplante_stunden;
+    document.getElementById('f-produktionseinheit').value = 'stunden';
+  } else {
+    document.getElementById('f-produktionszeit').value = a.geplante_stunden ? Math.round((a.geplante_stunden / 8) * 2) / 2 : '';
+    document.getElementById('f-produktionseinheit').value = 'tage';
+  }
   if (a.zieldatum) {
     const zd = new Date(a.zieldatum);
     document.getElementById('f-zieldatum').value = zd.toISOString().slice(0,10);
@@ -1097,9 +1109,10 @@ async function speichern() {
     const zdRaw = document.getElementById('f-zieldatum').value;
     if (!zdRaw) { toast('Bitte ein Zieldatum eingeben!', true); return; }
     zieldatum = new Date(zdRaw + 'T23:59:59').toISOString();
-    const produktionstage = parseFloat(document.getElementById('f-produktionstage').value);
-    if (!produktionstage || produktionstage <= 0) { toast('Bitte geschätzte Produktionstage eingeben!', true); return; }
-    geplante_stunden = produktionstage * 8;
+    const produktionszeit = parseFloat(document.getElementById('f-produktionszeit').value);
+    if (!produktionszeit || produktionszeit <= 0) { toast('Bitte geschätzte Produktionszeit eingeben!', true); return; }
+    const einheit = document.getElementById('f-produktionseinheit').value;
+    geplante_stunden = einheit === 'tage' ? produktionszeit * 8 : produktionszeit;
   } else {
     geplante_stunden = parseFloat(document.getElementById('f-stunden').value);
     if (!geplante_stunden || geplante_stunden <= 0) { toast('Bitte geplante Stunden eingeben!', true); return; }
