@@ -656,15 +656,22 @@ async function ladeAuftraege() {
 }
 
 // ── Render ──
+let letzteDatenIds = [];
+
 function render(daten) {
   const tbody = document.getElementById('auftrag-tbody');
 
   if (!daten || daten.length === 0) {
     tbody.innerHTML = '<tr><td colspan="8"><div class="leer"><div class="leer-icon">✅</div><div class="leer-text">Keine aktiven Aufträge</div></div></td></tr>';
+    letzteDatenIds = [];
     return;
   }
 
-  tbody.innerHTML = daten.map(a => {
+  // Prüfen ob sich die Reihenfolge/Anzahl geändert hat
+  const neueIds = daten.map(a => a.id);
+  const strukturGeaendert = neueIds.length !== letzteDatenIds.length || neueIds.some((id, i) => id !== letzteDatenIds[i]);
+
+  const html = daten.map(a => {
     const st = getStatusClass(a);
     const elapsed = getElapsedHours(a);
     const istGeplant = (a.status === 'geplant' || !a.startzeit);
@@ -760,9 +767,34 @@ function render(daten) {
     </tr>`;
   }).join('');
 
-  // Nach dem Rendern: Größe anpassen damit alle aktiven reinpassen
-  requestAnimationFrame(() => zeilenAnpassen());
+  // Nur innerHTML ersetzen wenn sich Struktur geändert hat, sonst sanft updaten
+  if (strukturGeaendert) {
+    tbody.innerHTML = html;
+    letzteDatenIds = neueIds;
+    requestAnimationFrame(() => zeilenAnpassen());
+  } else {
+    // Gleiche Struktur: nur Zell-Inhalte updaten (kein Flackern)
+    const neueRows = document.createElement('tbody');
+    neueRows.innerHTML = html;
+    const alteRows = tbody.querySelectorAll('tr');
+    const neueRowsList = neueRows.querySelectorAll('tr');
+    for (let i = 0; i < alteRows.length && i < neueRowsList.length; i++) {
+      const alteCells = alteRows[i].querySelectorAll('td');
+      const neueCells = neueRowsList[i].querySelectorAll('td');
+      for (let j = 0; j < alteCells.length && j < neueCells.length; j++) {
+        if (alteCells[j].innerHTML !== neueCells[j].innerHTML) {
+          alteCells[j].innerHTML = neueCells[j].innerHTML;
+        }
+      }
+      // Klassen aktualisieren (z.B. row-klein)
+      if (alteRows[i].className !== neueRowsList[i].className) {
+        alteRows[i].className = neueRowsList[i].className;
+      }
+    }
+  }
 }
+
+let letzteScale = 1.0;
 
 function zeilenAnpassen() {
   const main = document.querySelector('main');
@@ -770,44 +802,56 @@ function zeilenAnpassen() {
   const rows = Array.from(document.querySelectorAll('#auftrag-tbody tr'));
   if (!rows.length) return;
 
-  // Reset
+  // Alle Zeilen sichtbar machen für Messung
   rows.forEach(r => r.style.display = '');
-  tableWrap.style.transform = '';
+
+  // Aktuelle Skalierung beibehalten für Messung (kein Reset = kein Flackern)
   tableWrap.style.transformOrigin = 'top left';
-  tableWrap.style.width = '';
+  tableWrap.style.transform = `scale(${letzteScale})`;
+  tableWrap.style.width = (100 / letzteScale) + '%';
 
-  const mainHeight = main.clientHeight;
+  // Letzte aktive Zeile finden
+  let letzteAktive = null;
+  rows.forEach(r => {
+    if (!r.classList.contains('row-klein')) letzteAktive = r;
+  });
 
-  // Skalierung: von 1.0 runter bis alle aktiven Aufträge reinpassen
-  let scale = 1.0;
+  if (!letzteAktive) return;
+
+  // Prüfen ob Skalierung angepasst werden muss
+  let scale = letzteScale;
   const minScale = 0.5;
+  const mainRect = main.getBoundingClientRect();
+  let rect = letzteAktive.getBoundingClientRect();
 
-  while (scale >= minScale) {
+  // Runterskalieren wenn nötig
+  while (rect.bottom > mainRect.bottom && scale >= minScale) {
+    scale -= 0.03;
     tableWrap.style.transform = `scale(${scale})`;
     tableWrap.style.width = (100 / scale) + '%';
-
-    // Letzte aktive Zeile finden (nicht row-klein)
-    let letzteAktive = null;
-    rows.forEach(r => {
-      r.style.display = '';
-      if (!r.classList.contains('row-klein')) letzteAktive = r;
-    });
-
-    if (!letzteAktive) break;
-
-    // Prüfen ob letzte aktive Zeile reinpasst (skalierte Position)
-    const rect = letzteAktive.getBoundingClientRect();
-    const mainRect = main.getBoundingClientRect();
-    if (rect.bottom <= mainRect.bottom) break;
-
-    scale -= 0.03;
+    rect = letzteAktive.getBoundingClientRect();
   }
 
-  // Nur unwichtige Zeilen (row-klein) ausblenden die nicht reinpassen
-  const mainRect = main.getBoundingClientRect();
+  // Hochskalieren wenn möglich
+  while (scale < 1.0) {
+    const testScale = Math.min(scale + 0.03, 1.0);
+    tableWrap.style.transform = `scale(${testScale})`;
+    tableWrap.style.width = (100 / testScale) + '%';
+    rect = letzteAktive.getBoundingClientRect();
+    if (rect.bottom > mainRect.bottom) {
+      tableWrap.style.transform = `scale(${scale})`;
+      tableWrap.style.width = (100 / scale) + '%';
+      break;
+    }
+    scale = testScale;
+  }
+
+  letzteScale = scale;
+
+  // Unwichtige Zeilen ausblenden die nicht reinpassen
   for (let i = rows.length - 1; i >= 0; i--) {
-    const rect = rows[i].getBoundingClientRect();
-    if (rect.bottom > mainRect.bottom && rows[i].classList.contains('row-klein')) {
+    const r = rows[i].getBoundingClientRect();
+    if (r.bottom > mainRect.bottom && rows[i].classList.contains('row-klein')) {
       rows[i].style.display = 'none';
     }
   }
