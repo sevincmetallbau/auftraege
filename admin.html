@@ -560,13 +560,14 @@
           <th>Beschreibung</th>
           <th>Mitarbeiter</th>
           <th>Gestartet</th>
-          <th>Geplant</th>
+          <th>Montage</th>
+          <th>Produktion</th>
           <th>Laufzeit</th>
           <th>Rest</th>
           <th>Fortschritt</th>
           <th>Aktionen</th>
         </tr></thead>
-        <tbody id="tbody-aktiv"><tr><td colspan="11" class="leer">Lade…</td></tr></tbody>
+        <tbody id="tbody-aktiv"><tr><td colspan="12" class="leer">Lade…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -641,25 +642,18 @@
           <button type="button" onclick="document.getElementById('f-startzeit').value=''" style="background:#1a1a2e;color:#555;border:1px solid #333;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:0.82rem;font-weight:600" title="Startzeit leeren">✕</button>
         </div>
       </div>
-      <div class="form-group full">
-        <label>Zeitplanung *</label>
-        <div class="planung-toggle">
-          <label><input type="radio" name="planung_typ" id="r-stunden" value="stunden" checked onchange="planungToggle()"><span>⏱ Stunden</span></label>
-          <label><input type="radio" name="planung_typ" id="r-tage" value="tage" onchange="planungToggle()"><span>📅 Bis Datum</span></label>
-        </div>
-        <div id="planung-stunden-wrap">
-          <input type="number" id="f-stunden" step="0.25" min="0.25" placeholder="z.B. 4 oder 2.5 (Stunden)">
-        </div>
-        <div id="planung-tage-wrap" style="display:none">
-          <input type="date" id="f-zieldatum" style="margin-bottom:8px">
-          <label style="font-size:0.78rem;color:#888;margin-bottom:4px;display:block">Geschätzte Produktionszeit</label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="number" id="f-produktionszeit" step="0.5" min="0.5" placeholder="z.B. 5" style="flex:1">
-            <select id="f-produktionseinheit" style="background:#0f1e3d;border:2px solid #0f3460;border-radius:8px;padding:10px 12px;color:#fff;font-size:0.9rem">
-              <option value="tage">Tage</option>
-              <option value="stunden">Stunden</option>
-            </select>
-          </div>
+      <div class="form-group">
+        <label>Montage-Termin <span style="color:#555;font-weight:400;text-transform:none;font-size:0.78rem">– optional</span></label>
+        <input type="date" id="f-zieldatum">
+      </div>
+      <div class="form-group">
+        <label>Produktionszeit *</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="f-produktionszeit" step="0.5" min="0.5" placeholder="z.B. 5" style="flex:1">
+          <select id="f-produktionseinheit" style="background:#0f1e3d;border:2px solid #0f3460;border-radius:8px;padding:10px 12px;color:#fff;font-size:0.9rem">
+            <option value="tage">Tage</option>
+            <option value="stunden">Stunden</option>
+          </select>
         </div>
       </div>
       <div class="form-group full">
@@ -728,9 +722,7 @@ function startzeitJetzt() {
 }
 
 function planungToggle() {
-  const istTage = document.getElementById('r-tage').checked;
-  document.getElementById('planung-stunden-wrap').style.display = istTage ? 'none' : 'block';
-  document.getElementById('planung-tage-wrap').style.display = istTage ? 'block' : 'none';
+  // Nicht mehr benötigt, bleibt für Kompatibilität
 }
 
 async function getNextNummer() {
@@ -917,7 +909,7 @@ function render() {
   // Aktive Tabelle
   const ta = document.getElementById('tbody-aktiv');
   if (aktiv.length === 0) {
-    ta.innerHTML = '<tr><td colspan="11" class="leer">Keine aktiven Aufträge</td></tr>';
+    ta.innerHTML = '<tr><td colspan="12" class="leer">Keine aktiven Aufträge</td></tr>';
   } else {
     ta.innerHTML = aktiv.map(a => {
       const st = getStatusClass(a);
@@ -973,7 +965,8 @@ function render() {
         <td>${a.beschreibung || '–'}${a.status !== 'aktiv' ? ` ${statusLabel}` : ''}</td>
         <td>${(a.mitarbeiter && a.mitarbeiter.length) ? a.mitarbeiter.join(', ') : '–'}</td>
         <td class="zeit-col">${formatDt(a.startzeit)}${a.gestartet_von ? `<br><span style="font-size:0.75rem;color:#7dc3ff">▶ ${a.gestartet_von}</span>` : ''}</td>
-        <td class="zeit-col">${a.planung_typ === 'tage' ? '📅 ' + formatDt(a.zieldatum).split(',')[0] + '<br><span style="font-size:0.72rem;color:#888">~' + (a.geplante_stunden < 8 ? a.geplante_stunden + 'h Arbeit' : Math.round(a.geplante_stunden / 8 * 2) / 2 + ' Arbeitstage') + '</span>' : formatDauer(a.geplante_stunden)}</td>
+        <td class="zeit-col">${a.zieldatum ? '📅 ' + formatDt(a.zieldatum).split(',')[0] : '–'}</td>
+        <td class="zeit-col">${a.geplante_stunden ? (a.geplante_stunden < 8 ? a.geplante_stunden + 'h' : Math.round(a.geplante_stunden / 8 * 2) / 2 + ' Tage') : '–'}</td>
         <td class="zeit-col">${a.startzeit ? formatDauer(elapsed) : '–'}</td>
         <td class="zeit-col">${restCell2}</td>
         <td>${fortschritt}</td>
@@ -1080,10 +1073,9 @@ async function modalOeffnen() {
   document.getElementById('f-beschreibung').value = '';
   renderMitarbeiterChecks([]);
   document.getElementById('f-startzeit').value = '';
-  document.getElementById('r-stunden').checked = true;
-  document.getElementById('f-stunden').value = '';
   document.getElementById('f-zieldatum').value = '';
-  planungToggle();
+  document.getElementById('f-produktionszeit').value = '';
+  document.getElementById('f-produktionseinheit').value = 'tage';
   document.getElementById('f-notiz').value = '';
   document.getElementById('modal-overlay').classList.remove('hidden');
 }
@@ -1104,11 +1096,14 @@ function modalBearbeiten(id) {
   } else {
     document.getElementById('f-startzeit').value = '';
   }
-  const istTage = (a.planung_typ === 'tage');
-  document.getElementById('r-stunden').checked = !istTage;
-  document.getElementById('r-tage').checked = istTage;
-  document.getElementById('f-stunden').value = a.geplante_stunden || '';
-  // Produktionszeit aus geplante_stunden: wenn < 8h → Stunden, sonst Tage
+  // Montage-Termin
+  if (a.zieldatum) {
+    const zd = new Date(a.zieldatum);
+    document.getElementById('f-zieldatum').value = zd.toISOString().slice(0,10);
+  } else {
+    document.getElementById('f-zieldatum').value = '';
+  }
+  // Produktionszeit: wenn < 8h → Stunden, sonst Tage
   if (a.geplante_stunden && a.geplante_stunden < 8) {
     document.getElementById('f-produktionszeit').value = a.geplante_stunden;
     document.getElementById('f-produktionseinheit').value = 'stunden';
@@ -1116,13 +1111,6 @@ function modalBearbeiten(id) {
     document.getElementById('f-produktionszeit').value = a.geplante_stunden ? Math.round((a.geplante_stunden / 8) * 2) / 2 : '';
     document.getElementById('f-produktionseinheit').value = 'tage';
   }
-  if (a.zieldatum) {
-    const zd = new Date(a.zieldatum);
-    document.getElementById('f-zieldatum').value = zd.toISOString().slice(0,10);
-  } else {
-    document.getElementById('f-zieldatum').value = '';
-  }
-  planungToggle();
   document.getElementById('f-notiz').value = a.notiz || '';
   document.getElementById('modal-overlay').classList.remove('hidden');
 }
@@ -1135,25 +1123,18 @@ async function speichern() {
   const nr = document.getElementById('f-nr').value.trim();
   if (!nr) { toast('Bitte Auftragsnummer eingeben!', true); return; }
 
-  const istTage = document.getElementById('r-tage').checked;
   const startzeitRaw = document.getElementById('f-startzeit').value;
   const startzeit = startzeitRaw ? new Date(startzeitRaw).toISOString() : null;
 
-  let geplante_stunden = null;
-  let zieldatum = null;
+  // Produktionszeit (Pflicht)
+  const produktionszeit = parseFloat(document.getElementById('f-produktionszeit').value);
+  if (!produktionszeit || produktionszeit <= 0) { toast('Bitte Produktionszeit eingeben!', true); return; }
+  const einheit = document.getElementById('f-produktionseinheit').value;
+  const geplante_stunden = einheit === 'tage' ? produktionszeit * 8 : produktionszeit;
 
-  if (istTage) {
-    const zdRaw = document.getElementById('f-zieldatum').value;
-    if (!zdRaw) { toast('Bitte ein Zieldatum eingeben!', true); return; }
-    zieldatum = new Date(zdRaw + 'T23:59:59').toISOString();
-    const produktionszeit = parseFloat(document.getElementById('f-produktionszeit').value);
-    if (!produktionszeit || produktionszeit <= 0) { toast('Bitte geschätzte Produktionszeit eingeben!', true); return; }
-    const einheit = document.getElementById('f-produktionseinheit').value;
-    geplante_stunden = einheit === 'tage' ? produktionszeit * 8 : produktionszeit;
-  } else {
-    geplante_stunden = parseFloat(document.getElementById('f-stunden').value);
-    if (!geplante_stunden || geplante_stunden <= 0) { toast('Bitte geplante Stunden eingeben!', true); return; }
-  }
+  // Montage-Termin (optional)
+  const zdRaw = document.getElementById('f-zieldatum').value;
+  const zieldatum = zdRaw ? new Date(zdRaw + 'T23:59:59').toISOString() : null;
 
   const daten = {
     auftragsnummer: nr,
@@ -1162,7 +1143,7 @@ async function speichern() {
     mitarbeiter: getMitarbeiterAuswahl(),
     startzeit,
     geplante_stunden,
-    planung_typ: istTage ? 'tage' : 'stunden',
+    planung_typ: zieldatum ? 'tage' : 'stunden',
     zieldatum,
     notiz: document.getElementById('f-notiz').value.trim() || null,
   };
