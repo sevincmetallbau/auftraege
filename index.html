@@ -356,10 +356,11 @@
     td:nth-child(4),
     td:nth-child(5),
     td:nth-child(6),
-    td:nth-child(8) { display: none; }
+    td:nth-child(7),
+    td:nth-child(9) { display: none; }
 
     /* Restzeit kompakt unten */
-    td:nth-child(7) .td-inner {
+    td:nth-child(8) .td-inner {
       padding: 0 14px 14px 20px;
       text-align: left !important;
     }
@@ -453,14 +454,15 @@
           <th></th>
           <th>Auftrag / Kunde</th>
           <th>Status</th>
-          <th>Fertigstellung</th>
+          <th>Montage</th>
+          <th>Produktion</th>
           <th>Laufzeit</th>
           <th class="right">Restzeit</th>
           <th>Fortschritt</th>
         </tr>
       </thead>
       <tbody id="auftrag-tbody">
-        <tr><td colspan="7"><div class="leer"><div class="leer-icon">⏳</div><div class="leer-text">Lade Aufträge…</div></div></td></tr>
+        <tr><td colspan="8"><div class="leer"><div class="leer-icon">⏳</div><div class="leer-text">Lade Aufträge…</div></div></td></tr>
       </tbody>
     </table>
   </div>
@@ -633,7 +635,7 @@ async function ladeAuftraege() {
     // Fehlermeldung nur zeigen wenn noch NIE Daten geladen wurden
     if (!letzterErfolg) {
       document.getElementById('auftrag-tbody').innerHTML =
-        '<tr><td colspan="7"><div class="leer"><div class="leer-icon">⚠️</div><div class="leer-text">Verbindungsfehler – wird automatisch erneut versucht</div></div></td></tr>';
+        '<tr><td colspan="8"><div class="leer"><div class="leer-icon">⚠️</div><div class="leer-text">Verbindungsfehler – wird automatisch erneut versucht</div></div></td></tr>';
     }
   }
 }
@@ -643,7 +645,7 @@ function render(daten) {
   const tbody = document.getElementById('auftrag-tbody');
 
   if (!daten || daten.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="leer"><div class="leer-icon">✅</div><div class="leer-text">Keine aktiven Aufträge</div></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8"><div class="leer"><div class="leer-icon">✅</div><div class="leer-text">Keine aktiven Aufträge</div></div></td></tr>';
     return;
   }
 
@@ -666,10 +668,15 @@ function render(daten) {
     } else if (istGeplant && st === 'orange') badgeText = 'Bald starten!';
     else badgeText = { gruen:'In Bearbeitung', orange:'Bald fällig', rot:'Überzogen', geplant:'Geplant', pausiert:'Pausiert' }[st] || '';
 
-    // Geplant-Spalte
-    const geplantZelle = a.planung_typ === 'tage'
+    // Montage-Spalte (Zieldatum)
+    const montageZelle = a.zieldatum
       ? `<div class="zeit-wert" style="font-size:1.1rem">📅 ${formatDatum(a.zieldatum)}</div>`
-      : `<div class="zeit-wert">${formatDauer(a.geplante_stunden)}</div>`;
+      : `<div class="zeit-wert" style="color:#4b5563">–</div>`;
+
+    // Produktion-Spalte (geplante Produktionszeit)
+    const produktionZelle = a.geplante_stunden
+      ? `<div class="zeit-wert">${formatDauer(a.geplante_stunden)}</div>`
+      : `<div class="zeit-wert" style="color:#4b5563">–</div>`;
 
     // Laufzeit
     const laufzeitZelle = a.startzeit
@@ -721,7 +728,8 @@ function render(daten) {
           ${a.startzeit && a.status === 'aktiv' ? `<div style="font-size:0.78rem;color:#6b7280;margin-top:6px">Start: ${formatDatetime(a.startzeit)}</div>` : ''}
         </div>
       </td>
-      <td><div class="td-inner">${geplantZelle}</div></td>
+      <td><div class="td-inner">${montageZelle}</div></td>
+      <td><div class="td-inner">${produktionZelle}</div></td>
       <td><div class="td-inner">${laufzeitZelle}</div></td>
       <td><div class="td-inner" style="text-align:right">${restZelle}</div></td>
       <td>
