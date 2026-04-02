@@ -238,6 +238,22 @@
 
   .btn-fertig:active { background: #15803d; }
 
+  .btn-mitmachen {
+    width: 100%;
+    background: #374151;
+    color: #93c5fd;
+    border: 1px solid #2563eb;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 8px;
+  }
+
+  .btn-mitmachen:active { background: #1e3a5f; }
+
   .kein-auftrag {
     text-align: center;
     padding: 50px 20px;
@@ -598,6 +614,7 @@ async function ladeAuftraege() {
             ${startInfo}
             ${(a.mitarbeiter && a.mitarbeiter.length) ? `<div class="card-ma">${a.mitarbeiter.map(m => `<span class="card-ma-badge">${m}</span>`).join('')}</div>` : ''}
             ${aktionBtn}
+            ${!(a.mitarbeiter || []).includes(aktiverMitarbeiter.name) ? `<button class="btn-mitmachen" onclick="mitmachen('${a.id}')">👋 Ich arbeite mit</button>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -717,6 +734,18 @@ async function fertigBestaetigen() {
   setTimeout(() => ladeAuftraege(), 3000);
 }
 
+// ── Mitmachen ──
+async function mitmachen(id) {
+  const a = aktuelleAuftraege.find(x => x.id === id);
+  if (!a) return;
+  const mitarbeiter = [...(a.mitarbeiter || [])];
+  if (!mitarbeiter.includes(aktiverMitarbeiter.name)) {
+    mitarbeiter.push(aktiverMitarbeiter.name);
+  }
+  await sbPatch(`auftraege?id=eq.${id}`, { mitarbeiter });
+  await ladeAuftraege();
+}
+
 // ── Navigation ──
 function zeigScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('aktiv'));
@@ -734,21 +763,35 @@ function neuStart() {
 }
 
 // ── Hilfsfunktionen ──
+const ARBEIT_START = 7;
+const ARBEIT_ENDE = 16;
+const PAUSE_H = 1;
+const H_PRO_TAG = 8;
+
 function getElapsedHours(a) {
   if (!a.startzeit) return 0;
   const start = new Date(a.startzeit);
   const ref = (a.status === 'pausiert' && a.pausiert_seit) ? new Date(a.pausiert_seit) : new Date();
-  let count = 0;
+  let totalH = 0;
   const d = new Date(start);
   d.setHours(0,0,0,0);
-  const end = new Date(ref);
-  end.setHours(0,0,0,0);
-  while (d <= end) {
+  const endDay = new Date(ref);
+  endDay.setHours(0,0,0,0);
+  while (d <= endDay) {
     const tag = d.getDay();
-    if (tag !== 0 && tag !== 6) count++;
+    if (tag !== 0 && tag !== 6) {
+      if (d.getTime() === endDay.getTime()) {
+        const h = ref.getHours() + ref.getMinutes() / 60;
+        let tagH = Math.max(0, Math.min(h, ARBEIT_ENDE) - ARBEIT_START);
+        if (h >= 13) tagH -= PAUSE_H;
+        totalH += Math.max(0, tagH);
+      } else {
+        totalH += H_PRO_TAG;
+      }
+    }
     d.setDate(d.getDate() + 1);
   }
-  return Math.max(0, count * 8 - (a.pause_gesamt || 0));
+  return Math.max(0, totalH - (a.pause_gesamt || 0));
 }
 
 function werktageZwischen(von, bis) {
