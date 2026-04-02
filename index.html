@@ -500,22 +500,37 @@ setInterval(() => {
 }, 1000);
 
 // ── Zeitberechnung ──
+const ARBEIT_START = 7;   // 7:00 Uhr
+const ARBEIT_ENDE = 16;   // 16:00 Uhr
+const PAUSE_H = 1;        // 1 Stunde Mittagspause
+const H_PRO_TAG = 8;      // 16 - 7 - 1 = 8 Stunden
+
 function getElapsedHours(a) {
   if (!a.startzeit) return 0;
   const start = new Date(a.startzeit);
   const ref = (a.status === 'pausiert' && a.pausiert_seit)
     ? new Date(a.pausiert_seit) : new Date();
-  let count = 0;
+  let totalH = 0;
   const d = new Date(start);
   d.setHours(0,0,0,0);
-  const end = new Date(ref);
-  end.setHours(0,0,0,0);
-  while (d <= end) {
+  const endDay = new Date(ref);
+  endDay.setHours(0,0,0,0);
+  while (d <= endDay) {
     const tag = d.getDay();
-    if (tag !== 0 && tag !== 6) count++;
+    if (tag !== 0 && tag !== 6) {
+      if (d.getTime() === endDay.getTime()) {
+        // Heutiger Tag: nur bis aktuelle Uhrzeit, minus Pause wenn nach 12 Uhr
+        const h = ref.getHours() + ref.getMinutes() / 60;
+        let tagH = Math.max(0, Math.min(h, ARBEIT_ENDE) - ARBEIT_START);
+        if (h >= 13) tagH -= PAUSE_H; // Nach Pause: 1h abziehen
+        totalH += Math.max(0, tagH);
+      } else {
+        totalH += H_PRO_TAG;
+      }
+    }
     d.setDate(d.getDate() + 1);
   }
-  return Math.max(0, count * 8 - (a.pause_gesamt || 0));
+  return Math.max(0, totalH - (a.pause_gesamt || 0));
 }
 
 function werktageZwischen(von, bis) {

@@ -819,23 +819,36 @@ function getMitarbeiterAuswahl() {
 }
 
 // ─── RENDER ────────────────────────────────────────────
+const ARBEIT_START = 7;
+const ARBEIT_ENDE = 16;
+const PAUSE_H = 1;
+const H_PRO_TAG = 8;  // 16 - 7 - 1 Pause
+
 function getElapsedHours(a) {
   if (!a.startzeit) return 0;
   const start = new Date(a.startzeit);
   const ref = (a.status === 'pausiert' && a.pausiert_seit)
     ? new Date(a.pausiert_seit) : new Date();
-  // Werktage zählen (inkl. Start- und Endtag), je 8h
-  let count = 0;
+  let totalH = 0;
   const d = new Date(start);
   d.setHours(0,0,0,0);
-  const end = new Date(ref);
-  end.setHours(0,0,0,0);
-  while (d <= end) {
+  const endDay = new Date(ref);
+  endDay.setHours(0,0,0,0);
+  while (d <= endDay) {
     const tag = d.getDay();
-    if (tag !== 0 && tag !== 6) count++;
+    if (tag !== 0 && tag !== 6) {
+      if (d.getTime() === endDay.getTime()) {
+        const h = ref.getHours() + ref.getMinutes() / 60;
+        let tagH = Math.max(0, Math.min(h, ARBEIT_ENDE) - ARBEIT_START);
+        if (h >= 13) tagH -= PAUSE_H;
+        totalH += Math.max(0, tagH);
+      } else {
+        totalH += H_PRO_TAG;
+      }
+    }
     d.setDate(d.getDate() + 1);
   }
-  return Math.max(0, count * 8 - (a.pause_gesamt || 0));
+  return Math.max(0, totalH - (a.pause_gesamt || 0));
 }
 
 function werktageZwischen(von, bis) {
