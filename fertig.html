@@ -597,7 +597,8 @@ async function ladeAuftraege() {
               <div class="card-zeit-wert ${ueberzogen ? 'rot' : ''}">${ueberzogen ? '+' : ''}${formatDauer(Math.abs(rest))}</div>
             </div>
           </div>`;
-        aktionBtn = `<button class="btn-fertig" onclick="fertigAnfragen('${a.id}')">✅ Ich bin fertig</button>`;
+        aktionBtn = `<button class="btn-fertig" onclick="fertigAnfragen('${a.id}')">✅ Ich bin fertig</button>
+            <button class="btn-mitmachen" style="border-color:#7c3aed;color:#c4b5fd" onclick="pausierenAnfragen('${a.id}')">⏸ Pausieren</button>`;
       }
 
       const startInfo = a.gestartet_von
@@ -656,6 +657,18 @@ function fortsetzenAnfragen(id) {
   document.getElementById('confirm-overlay').classList.remove('hidden');
 }
 
+// ── Pausieren ──
+function pausierenAnfragen(id) {
+  const a = aktuelleAuftraege.find(x => x.id === id);
+  zuErledigenId = id;
+  document.getElementById('confirm-titel').textContent = `"${a.kunde || a.auftragsnummer}" pausieren?`;
+  document.getElementById('confirm-text').textContent = `Der Auftrag wird pausiert. Die Zeit wird angehalten.`;
+  document.querySelector('.btn-confirm-ja').textContent = '⏸ Ja, pausieren!';
+  document.querySelector('.btn-confirm-ja').style.background = '#7c3aed';
+  document.getElementById('confirm-overlay').dataset.aktion = 'pausieren';
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+
 // ── Fertigmelden ──
 function fertigAnfragen(id) {
   const a = aktuelleAuftraege.find(x => x.id === id);
@@ -679,6 +692,35 @@ async function fertigBestaetigen() {
 
   const aktion = document.getElementById('confirm-overlay').dataset.aktion;
 
+  // Status-Check: Auftrag nochmal frisch aus DB laden, um Doppel-Aktionen zu verhindern
+  const frisch = await sbFetch(`auftraege?id=eq.${zuErledigenId}`);
+  const aktuellerStatus = frisch && frisch[0] ? frisch[0].status : null;
+
+  if (aktion === 'starten' && aktuellerStatus !== 'geplant') {
+    alert('Dieser Auftrag wurde bereits gestartet!');
+    zuErledigenId = null;
+    await ladeAuftraege();
+    return;
+  }
+  if (aktion === 'fortsetzen' && aktuellerStatus !== 'pausiert') {
+    alert('Dieser Auftrag ist nicht mehr pausiert!');
+    zuErledigenId = null;
+    await ladeAuftraege();
+    return;
+  }
+  if (aktion === 'pausieren' && aktuellerStatus !== 'aktiv') {
+    alert('Dieser Auftrag ist nicht mehr aktiv!');
+    zuErledigenId = null;
+    await ladeAuftraege();
+    return;
+  }
+  if (aktion === 'fertig' && (aktuellerStatus === 'erledigt' || aktuellerStatus === 'geplant')) {
+    alert('Dieser Auftrag kann nicht als erledigt markiert werden!');
+    zuErledigenId = null;
+    await ladeAuftraege();
+    return;
+  }
+
   if (aktion === 'starten') {
     await sbPatch(`auftraege?id=eq.${zuErledigenId}`, {
       status: 'aktiv',
@@ -690,8 +732,18 @@ async function fertigBestaetigen() {
     return;
   }
 
+  if (aktion === 'pausieren') {
+    await sbPatch(`auftraege?id=eq.${zuErledigenId}`, {
+      status: 'pausiert',
+      pausiert_seit: new Date().toISOString()
+    });
+    zuErledigenId = null;
+    await ladeAuftraege();
+    return;
+  }
+
   if (aktion === 'fortsetzen') {
-    const a = aktuelleAuftraege.find(x => x.id === zuErledigenId);
+    const a = frisch[0];
     const zusatz = a.pausiert_seit ? (new Date() - new Date(a.pausiert_seit)) / 3600000 : 0;
     await sbPatch(`auftraege?id=eq.${zuErledigenId}`, {
       status: 'aktiv',
