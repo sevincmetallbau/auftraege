@@ -395,11 +395,15 @@
 
   /* Kleinere Zeilen für nicht-laufende Aufträge */
   tr.row-klein td { opacity: 0.65; }
-  tr.row-klein .kunde-name { font-size: 1.1rem; }
-  tr.row-klein .td-inner { padding: 10px 20px; }
-  tr.row-klein .stripe { min-height: 56px; }
-  tr.row-klein .zeit-wert { font-size: 1rem; }
-  tr.row-klein .ma-badge { font-size: 0.78rem; padding: 2px 9px; }
+  tr.row-klein .kunde-name { font-size: 1rem; }
+  tr.row-klein .td-inner { padding: 6px 20px; }
+  tr.row-klein .stripe { min-height: 40px; }
+  tr.row-klein .zeit-wert { font-size: 0.9rem; }
+  tr.row-klein .zeit-wert-gross { font-size: 1.1rem; }
+  tr.row-klein .ma-badge { font-size: 0.75rem; padding: 2px 8px; }
+  tr.row-klein .beschreibung { font-size: 0.82rem; }
+  tr.row-klein .auftrag-nr { font-size: 0.82rem; }
+  tr.row-klein .notiz { font-size: 0.78rem; padding: 4px 10px; }
 
   /* Notiz */
   .notiz {
@@ -810,26 +814,22 @@ function zeilenAnpassen() {
   tableWrap.style.transform = `scale(${letzteScale})`;
   tableWrap.style.width = (100 / letzteScale) + '%';
 
-  // Letzte aktive Zeile finden
-  let letzteAktive = null;
-  rows.forEach(r => {
-    if (!r.classList.contains('row-klein')) letzteAktive = r;
-  });
-
-  if (!letzteAktive) return;
+  // Letzte Zeile als Referenz (alle sollen sichtbar sein)
+  const letzteZeile = rows[rows.length - 1];
+  if (!letzteZeile) return;
 
   // Prüfen ob Skalierung angepasst werden muss
   let scale = letzteScale;
-  const minScale = 0.5;
+  const minScale = 0.3;
   const mainRect = main.getBoundingClientRect();
-  let rect = letzteAktive.getBoundingClientRect();
+  let rect = letzteZeile.getBoundingClientRect();
 
   // Runterskalieren wenn nötig
   while (rect.bottom > mainRect.bottom && scale >= minScale) {
     scale -= 0.03;
     tableWrap.style.transform = `scale(${scale})`;
     tableWrap.style.width = (100 / scale) + '%';
-    rect = letzteAktive.getBoundingClientRect();
+    rect = letzteZeile.getBoundingClientRect();
   }
 
   // Hochskalieren wenn möglich
@@ -837,7 +837,7 @@ function zeilenAnpassen() {
     const testScale = Math.min(scale + 0.03, 1.0);
     tableWrap.style.transform = `scale(${testScale})`;
     tableWrap.style.width = (100 / testScale) + '%';
-    rect = letzteAktive.getBoundingClientRect();
+    rect = letzteZeile.getBoundingClientRect();
     if (rect.bottom > mainRect.bottom) {
       tableWrap.style.transform = `scale(${scale})`;
       tableWrap.style.width = (100 / scale) + '%';
@@ -848,13 +848,7 @@ function zeilenAnpassen() {
 
   letzteScale = scale;
 
-  // Unwichtige Zeilen ausblenden die nicht reinpassen
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const r = rows[i].getBoundingClientRect();
-    if (r.bottom > mainRect.bottom && rows[i].classList.contains('row-klein')) {
-      rows[i].style.display = 'none';
-    }
-  }
+  // Alle Zeilen bleiben sichtbar – Skalierung regelt das
 }
 
 ladeAuftraege();
