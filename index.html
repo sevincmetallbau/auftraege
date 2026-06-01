@@ -422,6 +422,36 @@
     color: #93c5fd;
     margin-top: 4px;
   }
+
+  /* Mehr-Pfeil unten */
+  .mehr-pfeil {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(transparent, rgba(17,24,39,0.95) 40%);
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .mehr-pfeil.sichtbar { opacity: 1; }
+
+  .mehr-pfeil-icon {
+    font-size: 2.5rem;
+    color: #e94560;
+    animation: pfeil-bounce 1.5s infinite;
+  }
+
+  @keyframes pfeil-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(8px); }
+  }
 </style>
 </head>
 <body>
@@ -471,6 +501,10 @@
     </table>
   </div>
 </main>
+
+<div class="mehr-pfeil" id="mehr-pfeil">
+  <span class="mehr-pfeil-icon">&#9660;</span>
+</div>
 
 <script>
 const SUPABASE_URL = 'https://febvatualuantefwlqyq.supabase.co';
@@ -848,7 +882,14 @@ function zeilenAnpassen() {
 
   letzteScale = scale;
 
-  // Alle Zeilen bleiben sichtbar – Skalierung regelt das
+  // Pfeil anzeigen wenn letzte Zeile nicht sichtbar ist
+  const pfeil = document.getElementById('mehr-pfeil');
+  rect = letzteZeile.getBoundingClientRect();
+  if (rect.bottom > mainRect.bottom + 5) {
+    pfeil.classList.add('sichtbar');
+  } else {
+    pfeil.classList.remove('sichtbar');
+  }
 }
 
 ladeAuftraege();
